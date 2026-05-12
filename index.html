@@ -3648,18 +3648,25 @@ async function exportExcel(){
              isEN?'Stay Price':'住宿价格', isEN?'Highlights':'亮点', isEN?'Tips':'提示', isEN?'Plan B':'备选']);
   const slotMap={morning:isEN?'Morning':'上午',afternoon:isEN?'Afternoon':'下午',evening:isEN?'Evening':'晚上'};
   const typeMap={attraction:isEN?'Attraction':'景点',meal:isEN?'Meal':'餐饮',accommodation:isEN?'Stay':'住宿',transport:isEN?'Transport':'交通',activity:isEN?'Activity':'活动',shopping:isEN?'Shopping':'购物',other:isEN?'Other':'其他'};
-  // Load all days and items if not already loaded
-  let exportDays = S.days||[];
-  if(exportDays.length===0){
-    try{
-      exportDays = await api('GET',`/plans/${S.currentPlan.id}/days`).catch(()=>[]);
-      for(const day of exportDays){
-        if(!day.items) day.items = await api('GET',`/days/${day.id}/items`).catch(()=>[]);
+  // Always fetch ALL days + their items fresh from Firestore
+  toast(isEN?'Loading all days...':'正在加载全部行程...','info');
+  let exportDays = [];
+  try{
+    exportDays = await api('GET',`/plans/${S.currentPlan.id}/days`).catch(()=>[]);
+    // Fetch items for every day in parallel
+    await Promise.all(exportDays.map(async day=>{
+      if(day.id===S.currentDayId){
+        // Current day already in memory - use it (most up to date)
+        day.items = S.currentDayItems||[];
+      } else {
+        day.items = await api('GET',`/days/${day.id}/items`).catch(()=>[]);
       }
-    }catch(e){}
+    }));
+  }catch(e){
+    toast(isEN?'Failed to load itinerary data':'行程数据加载失败','error');
   }
   for(const day of exportDays){
-    const items = day.id===S.currentDayId ? S.currentDayItems : (day.items||[]);
+    const items = day.items||[];
     if(!items.length){ rows.push([`Day ${day.day_number}`, day.date||'', isEN?'(No items)':'（暂无行程）']); continue; }
     for(const item of items){
       rows.push([
