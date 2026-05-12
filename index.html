@@ -407,7 +407,15 @@ select option{background:var(--bg2);color:var(--text)}
   .chart-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
-  #sidebar{display:none}
+  /* Sidebar becomes a slide-in drawer */
+  #sidebar{
+    position:fixed;top:0;left:0;height:100vh;z-index:1000;
+    transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    box-shadow:4px 0 24px rgba(0,0,0,.35);
+    width:240px!important;
+  }
+  #sidebar.mob-open{transform:translateX(0)}
+  #sidebar-overlay{display:block}
   #main{padding-bottom:64px}
   #mobile-nav{display:flex}
   .plan-right{display:none}
@@ -417,6 +425,7 @@ select option{background:var(--bg2);color:var(--text)}
   #topbar-tabs .tab-btn{padding:.35rem .45rem;font-size:.72rem}
   .home-header{flex-wrap:wrap;gap:.5rem}
   .plans-grid{grid-template-columns:1fr}
+  #hamburger-btn{display:flex}
 }
 @media(max-width:480px){
   .plans-grid{grid-template-columns:1fr}
@@ -432,6 +441,22 @@ select option{background:var(--bg2);color:var(--text)}
 #mobile-day-panel.open{display:block}
 .mob-day-panel-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto .75rem;}
 @media(min-width:769px){#mobile-day-panel{display:none!important}}
+
+/* Sidebar overlay (mobile) */
+#sidebar-overlay{
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
+}
+/* Hamburger button */
+#hamburger-btn{
+  display:none;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:var(--radius3);
+  background:var(--surface);border:1px solid var(--border);
+  cursor:pointer;color:var(--text);flex-shrink:0;margin-right:.3rem;
+  transition:background .15s;
+}
+#hamburger-btn:hover{background:var(--bg3)}
+#hamburger-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
 
 /* Mobile bottom nav */
 #mobile-nav{
@@ -1151,10 +1176,11 @@ select option{background:var(--bg2);color:var(--text)}
   <div id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-icon">🗺️</div>
-      <div>
+      <div style="flex:1">
         <div class="wordmark">TripForge</div>
         <div class="tagline" id="tagline-text">锻造你的完美旅程</div>
       </div>
+      <button id="sidebar-close-btn" onclick="toggleSidebar()" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.3rem;padding:.2rem .4rem;border-radius:6px;line-height:1" aria-label="Close">✕</button>
     </div>
     <div class="nav-section" id="nav-main-label">主导航</div>
     <div class="nav-item active" data-nav="home" onclick="navigate('home')">
@@ -1181,6 +1207,9 @@ select option{background:var(--bg2);color:var(--text)}
 
   <div id="main">
     <div id="topbar">
+      <button id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu">
+        <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <span class="topbar-title" id="topbar-title">我的旅行计划</span>
       <div id="topbar-tabs" class="hidden topbar-tabs">
         <button class="tab-btn active" onclick="switchPlanTab('itinerary')" data-i18n="tab_itinerary">🗓️ 行程</button>
@@ -2453,6 +2482,7 @@ function navigate(page,plan=null){
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
     const mobDaysBtnH=document.getElementById('mob-days-btn');
     if(mobDaysBtnH){mobDaysBtnH.style.display='none';document.getElementById('mobile-day-panel')?.classList.remove('open');}
+    closeSidebarIfMobile();
     loadPlans(); // always refresh from Firebase when returning home
   } else if(page==='plan'&&plan){
     // Immediately clear stale day state - synchronous, no race possible
@@ -2489,18 +2519,21 @@ function navigate(page,plan=null){
     document.getElementById('topbar-title').textContent=S.lang==='en'?'📊 Travel Dashboard':'📊 旅行数据看板';
     document.getElementById('topbar-tabs').classList.add('hidden');
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+    closeSidebarIfMobile();
     loadGlobalDashboard();
   } else if(page==='ai'){
     document.getElementById('page-ai').classList.add('active');
     document.getElementById('topbar-title').textContent=S.lang==='en'?'🤖 AI Assistant Hub':'🤖 AI 助手中心';
     document.getElementById('topbar-tabs').classList.add('hidden');
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+    closeSidebarIfMobile();
     loadAIPage();
   } else if(page==='settings'){
     document.getElementById('page-settings').classList.add('active');
     document.getElementById('topbar-title').textContent=S.lang==='en'?'⚙️ Settings':'⚙️ 设置中心';
     document.getElementById('topbar-tabs').classList.add('hidden');
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+    closeSidebarIfMobile();
     loadSettings();
   }
 }
@@ -2593,7 +2626,7 @@ function renderSidebarPlans(){
     const dest=Array.isArray(p.destinations)?p.destinations.slice(0,2).join('·'):(typeof p.destinations==='string'&&p.destinations.startsWith('['))?JSON.parse(p.destinations||'[]').slice(0,2).join('·'):p.destinations||'';
     const active=S.currentPlan&&S.currentPlan.id===p.id;
     const noDestText=S.lang==='en'?'No destination set':'未设置目的地';
-    return `<div class="plan-nav-item ${active?'active':''}" onclick="openPlan('${p.id}')">
+    return `<div class="plan-nav-item ${active?'active':''}" onclick="openPlan('${p.id}');closeSidebarIfMobile()">
       <span class="plan-emoji">${p.emoji||'✈️'}</span>
       <div class="plan-info"><div class="plan-name">${p.name}</div><div class="plan-dest">${dest||noDestText}</div></div>
     </div>`;
@@ -4772,6 +4805,37 @@ document.addEventListener('click',e=>{
 });
 
 
+// ─── Mobile Sidebar Drawer ────────────────────────────────────────────────────
+function toggleSidebar(){
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const closeBtn = document.getElementById('sidebar-close-btn');
+  const isOpen = sidebar.classList.contains('mob-open');
+  sidebar.classList.toggle('mob-open', !isOpen);
+  overlay.style.display = isOpen ? 'none' : 'block';
+  if(closeBtn) closeBtn.style.display = isOpen ? 'none' : 'block';
+  // Prevent body scroll when drawer open
+  document.body.style.overflow = isOpen ? '' : 'hidden';
+}
+function closeSidebarIfMobile(){
+  if(window.innerWidth <= 768){
+    const sidebar = document.getElementById('sidebar');
+    if(sidebar.classList.contains('mob-open')) toggleSidebar();
+  }
+}
+// Close sidebar when window resizes to desktop
+window.addEventListener('resize', ()=>{
+  if(window.innerWidth > 768){
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const closeBtn = document.getElementById('sidebar-close-btn');
+    sidebar.classList.remove('mob-open');
+    overlay.style.display = 'none';
+    if(closeBtn) closeBtn.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+});
+
 // ─── Mobile Day Panel ─────────────────────────────────────────────────────────
 function toggleMobileDayPanel(){
   const panel = document.getElementById('mobile-day-panel');
@@ -4894,6 +4958,8 @@ window.debounceMapSearch = debounceMapSearch;
 window.openBatchImport = openBatchImport;
 window.populateProviderDropdown = populateProviderDropdown;
 window.toggleMobileDayPanel = toggleMobileDayPanel;
+window.toggleSidebar = toggleSidebar;
+window.closeSidebarIfMobile = closeSidebarIfMobile;
 window.renderCompanions = renderCompanions;
 window.renderEPCompanions = renderEPCompanions;
 window.toggleItemExpand = toggleItemExpand;
@@ -4928,6 +4994,7 @@ window.updateModelDropdown = updateModelDropdown;
 })();
 
 </script>
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
 <div id="mobile-day-panel"></div>
 </body>
 </html>
