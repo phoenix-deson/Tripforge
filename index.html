@@ -406,13 +406,48 @@ select option{background:var(--bg2);color:var(--text)}
   .dashboard-grid{grid-template-columns:repeat(2,1fr)}
   .chart-grid{grid-template-columns:1fr}
 }
-@media(max-width:640px){
+@media(max-width:768px){
   #sidebar{display:none}
+  #main{padding-bottom:64px}
+  #mobile-nav{display:flex}
   .plan-right{display:none}
-  .plan-left{width:100%;height:50px;flex-direction:row;overflow-x:auto}
-  .dashboard-grid{grid-template-columns:1fr 1fr}
   .form-row{grid-template-columns:1fr}
+  .dashboard-grid{grid-template-columns:1fr 1fr}
+  .modal{width:96vw;max-width:96vw;margin:2vw}
+  #topbar-tabs .tab-btn{padding:.35rem .45rem;font-size:.72rem}
+  .home-header{flex-wrap:wrap;gap:.5rem}
+  .plans-grid{grid-template-columns:1fr}
 }
+@media(max-width:480px){
+  .plans-grid{grid-template-columns:1fr}
+  .dashboard-grid{grid-template-columns:1fr}
+}
+/* Mobile Day Panel overlay */
+#mobile-day-panel{
+  display:none;position:fixed;bottom:64px;left:0;right:0;z-index:199;
+  background:var(--surface);border-top:1px solid var(--border);
+  max-height:55vh;overflow-y:auto;box-shadow:0 -4px 20px rgba(0,0,0,.2);
+  border-radius:16px 16px 0 0;padding:.75rem 1rem 1rem;
+}
+#mobile-day-panel.open{display:block}
+.mob-day-panel-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto .75rem;}
+@media(min-width:769px){#mobile-day-panel{display:none!important}}
+
+/* Mobile bottom nav */
+#mobile-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:200;
+  background:var(--surface);border-top:1px solid var(--border);
+  height:64px;align-items:stretch;
+  box-shadow:0 -2px 12px rgba(0,0,0,.15);
+}
+#mobile-nav .mob-nav-item{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;cursor:pointer;border:none;background:none;color:var(--text2);
+  font-size:.62rem;padding:.35rem .2rem;transition:color .15s;
+}
+#mobile-nav .mob-nav-item .mob-icon{font-size:1.3rem;line-height:1}
+#mobile-nav .mob-nav-item.active{color:var(--accent)}
+#mobile-nav .mob-nav-item.active .mob-icon{filter:drop-shadow(0 0 4px var(--accent))}
 
 /* ── Util ── */
 .flex{display:flex}.items-center{align-items:center}.gap-1{gap:.25rem}.gap-2{gap:.5rem}.gap-3{gap:.75rem}
@@ -430,6 +465,28 @@ select option{background:var(--bg2);color:var(--text)}
 </head>
 <body>
 <div id="toast-container"></div>
+
+<!-- Mobile Bottom Nav -->
+<div id="mobile-nav">
+  <button class="mob-nav-item active" data-mob-nav="home" onclick="navigate('home')">
+    <span class="mob-icon">🏠</span><span id="mob-label-home">计划</span>
+  </button>
+  <button class="mob-nav-item" data-mob-nav="global-dashboard" onclick="navigate('global-dashboard')">
+    <span class="mob-icon">📊</span><span id="mob-label-dash">看板</span>
+  </button>
+  <button class="mob-nav-item" data-mob-nav="ai" onclick="navigate('ai')">
+    <span class="mob-icon">🤖</span><span id="mob-label-ai">AI</span>
+  </button>
+  <button class="mob-nav-item" data-mob-nav="settings" onclick="navigate('settings')">
+    <span class="mob-icon">⚙️</span><span id="mob-label-settings">设置</span>
+  </button>
+  <button class="mob-nav-item" id="mob-days-btn" onclick="toggleMobileDayPanel()" style="display:none">
+    <span class="mob-icon">📅</span><span id="mob-label-days">行程</span>
+  </button>
+  <button class="mob-nav-item" onclick="openNewPlanModal()">
+    <span class="mob-icon">✈️</span><span id="mob-label-new">新建</span>
+  </button>
+</div>
 
 <!-- ─── MODALS ─── -->
 
@@ -957,7 +1014,7 @@ select option{background:var(--bg2);color:var(--text)}
 <div class="modal-overlay" id="modal-expense">
 <div class="modal">
   <div class="modal-header">
-    <span class="modal-title">💸 记录实际支出</span>
+    <span class="modal-title" id="expense-modal-title">💸 记录实际支出</span>
     <button class="close-btn" onclick="closeModal('modal-expense')">✕</button>
   </div>
   <div class="modal-body">
@@ -987,7 +1044,7 @@ select option{background:var(--bg2);color:var(--text)}
     </div>
   </div>
   <div class="modal-footer">
-    <button class="btn btn-secondary" onclick="closeModal('modal-expense')">取消</button>
+    <button class="btn btn-secondary" id="expense-cancel-btn" onclick="closeModal('modal-expense')">取消</button>
     <button class="btn btn-primary" onclick="saveExpense()">记录</button>
   </div>
 </div>
@@ -1089,47 +1146,6 @@ select option{background:var(--bg2);color:var(--text)}
 </div>
 
 <!-- Meeting Modal -->
-<div class="modal-overlay" id="modal-meeting">
-<div class="modal modal-lg">
-  <div class="modal-header">
-    <span class="modal-title" id="meeting-modal-title">🎙️ 发起 AI 会议</span>
-    <button class="close-btn" onclick="closeModal('modal-meeting')">✕</button>
-  </div>
-  <div class="modal-body">
-    <div class="form-group mb-3">
-      <label class="form-label" id="meeting-topic-label">会议主题</label>
-      <input id="meet-topic" class="form-input" placeholder="如：分析东京5日游的最优行程方案">
-    </div>
-    <div class="form-group mb-3">
-      <label class="form-label" id="meeting-plan-label">关联计划（可选）</label>
-      <select id="meet-plan" class="form-input">
-        <option id="meet-plan-none" value="">无关联计划</option>
-      </select>
-    </div>
-    <div class="form-group mb-3">
-      <label class="form-label" id="meeting-agents-label">参与智能体（已选 <span id="meet-agent-count">0</span> 个）</label>
-      <div id="meet-agent-select" style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;max-height:220px;overflow-y:auto"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" id="meeting-provider-label">AI 供应商</label>
-        <select id="meet-provider" class="form-input"></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label" id="meeting-rounds-label">讨论轮次</label>
-        <select id="meet-rounds" class="form-input">
-          <option value="1">1 轮</option><option value="2" selected>2 轮</option><option value="3">3 轮</option>
-        </select>
-      </div>
-    </div>
-  </div>
-  <div class="modal-footer">
-    <button class="btn btn-secondary" id="meeting-cancel-btn" onclick="closeModal('modal-meeting')">取消</button>
-    <button class="btn btn-primary" id="meeting-start-btn" onclick="startMeeting()">🚀 开始会议</button>
-  </div>
-</div>
-</div>
-
 <!-- ─── APP SHELL ─── -->
 <div id="app">
   <div id="sidebar">
@@ -1174,7 +1190,7 @@ select option{background:var(--bg2);color:var(--text)}
         <button class="tab-btn" onclick="switchPlanTab('tracker')" data-i18n="tab_tracker">💸 记账</button>
       </div>
       <div id="topbar-actions" style="display:flex;gap:.4rem">
-        <button class="icon-btn hidden" id="btn-ai-gen" title="AI 智能规划" onclick="openAIGenModal()">🤖</button>
+        <button class="icon-btn hidden" id="btn-ai-gen" title="AI Auto Plan" onclick="openAIGenModal()">🤖</button>
         <button class="icon-btn hidden" id="btn-export" title="导出 Excel" onclick="exportExcel()">📤</button>
         <button class="icon-btn hidden" id="btn-toggle-panel" title="AI 助手" onclick="toggleAIPanel()">💬</button>
         <button class="icon-btn" id="btn-theme" title="切换主题" onclick="toggleTheme()">🌙</button>
@@ -1270,7 +1286,6 @@ select option{background:var(--bg2);color:var(--text)}
       <div class="home-header" style="padding:1.25rem 1.25rem .75rem">
         <h2 style="font-family:var(--font-display);font-weight:700;font-size:1.3rem">🤖 <span data-i18n="nav_ai_hub">AI 助手中心</span></h2>
         <div style="display:flex;gap:.5rem">
-          <button class="btn btn-secondary btn-sm" onclick="openMeetingModal()">🎙️ <span data-i18n="meeting_btn">发起会议</span></button>
           <button class="btn btn-primary btn-sm" onclick="openAgentModal()">+ <span data-i18n="new_agent_btn">新建智能体</span></button>
         </div>
       </div>
@@ -1451,12 +1466,21 @@ async function api(method, path, body){
       const cfg = getProviderConfig(body.provider);
       if(!cfg.api_key) return {ok:false, result: '未配置 API Key'};
       try {
+        const testHeaders = {'Content-Type':'application/json'};
+        if(body.provider==='claude'){
+          testHeaders['x-api-key']=cfg.api_key;
+          testHeaders['anthropic-version']='2023-06-01';
+          testHeaders['anthropic-dangerous-direct-browser-access']='true';
+        } else {
+          testHeaders['Authorization']='Bearer '+cfg.api_key;
+        }
         const r = await fetch(cfg.base_url+'/chat/completions', {
-          method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.api_key},
+          method:'POST', headers:testHeaders,
           body: JSON.stringify({model:cfg.default_model,messages:[{role:'user',content:'Hi'}],max_tokens:5})
         });
-        if(r.ok) return {ok:true, result:'连接成功'};
-        return {ok:false, result:`HTTP ${r.status}`};
+        if(r.ok) return {ok:true, result: S.lang==='en'?'Connection successful':'连接成功'};
+        const txt=await r.text().catch(()=>'');
+        return {ok:false, result:`HTTP ${r.status}${txt?' - '+txt.slice(0,100):''}`};
       } catch(e) { return {ok:false, result:e.message}; }
     }
 
@@ -1758,13 +1782,6 @@ async function api(method, path, body){
       return {ok:true};
     }
 
-    // ── Meetings (in-memory / localStorage) ──────────────────────
-    if(path === '/meetings' && method === 'POST'){
-      const id = uid(); const now = nowISO();
-      const meeting = {id, plan_id:body.plan_id||'', topic:body.topic||'', agents:body.agent_ids||[], messages:[], summary:'', status:'active', created_at:now};
-      return meeting;
-    }
-
 
     // ── Global Dashboard ─────────────────────────────────────────
     if(path === '/dashboard/global' && method === 'GET'){
@@ -1949,14 +1966,15 @@ async function streamAI(path, body, onChunk, onDone, onError){
     const plan = S.currentPlan||{};
     const mode = body.mode||'full';
     if(mode==='packing'){
-      systemPrompt='你是一位旅行打包专家。用户的旅行计划信息如下：目的地：'+(plan.destinations||[]).join('、')+'，出发：'+plan.start_date+'，结束：'+plan.end_date+'。请生成详细的行李清单。';
+      const packCompanions=(plan.companions||[]).map(c=>`${c.count||1}位${c.type||'成人'}`).join('、')||'独行';
+      systemPrompt='你是一位旅行打包专家。旅行信息：目的地：'+(plan.destinations||[]).join('、')+'，出发：'+plan.start_date+'，返回：'+plan.end_date+'，同行：'+packCompanions+'。请根据目的地气候和同行人员特点生成详细行李清单。';
       msgs.push({role:'user',content:'请为我的旅行生成行李清单，严格按JSON格式输出：{"clothing":["物品1"],"documents":["物品1"],"electronics":[],"health":[],"other":[]}，不要有任何多余文字。'});
     } else if(mode==='full'||mode==='macro'){
       const targetLang = getLangForPlan(plan);
       const langNote = LANG_INSTRUCTIONS_FRONT[targetLang]||LANG_INSTRUCTIONS_FRONT.zh;
       systemPrompt = buildTravelSystemPromptFront(plan);
       const prompt = buildFullPlanPromptFront(plan, body.extra_prompt||'');
-      msgs.push({role:'user',content:prompt+'\\n\\n'+langNote});
+      msgs.push({role:'user',content:prompt+'\n\n'+langNote});
     }
   }
 
@@ -1969,14 +1987,26 @@ async function streamAI(path, body, onChunk, onDone, onError){
   };
 
   try {
+    // Build headers - Claude uses x-api-key, others use Bearer
+    const headers = {'Content-Type':'application/json'};
+    if(provider === 'claude'){
+      headers['x-api-key'] = cfg.api_key;
+      headers['anthropic-version'] = '2023-06-01';
+      headers['anthropic-dangerous-direct-browser-access'] = 'true';
+    } else {
+      headers['Authorization'] = 'Bearer '+cfg.api_key;
+    }
     const r = await fetch(cfg.base_url+'/chat/completions', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.api_key},
-      body: JSON.stringify(payload)
+      method:'POST', headers, body: JSON.stringify(payload)
     });
     if(!r.ok){
       const txt = await r.text().catch(()=>'');
-      onError&&onError(`API错误 ${r.status}: ${txt.slice(0,200)}`);
+      let errMsg = `API Error ${r.status}`;
+      if(r.status===401) errMsg = 'API Key invalid or expired (401)';
+      else if(r.status===403) errMsg = 'Access denied (403). Check API Key permissions';
+      else if(r.status===429) errMsg = 'Rate limit exceeded (429). Please wait';
+      else if(txt) errMsg += ': '+txt.slice(0,150);
+      onError&&onError(errMsg);
       return;
     }
     const reader = r.body.getReader(); const dec = new TextDecoder();
@@ -1984,7 +2014,7 @@ async function streamAI(path, body, onChunk, onDone, onError){
     while(true){
       const{done,value}=await reader.read(); if(done) break;
       buf+=dec.decode(value,{stream:true});
-      const lines=buf.split('\\n'); buf=lines.pop()||'';
+      const lines=buf.split('\n'); buf=lines.pop()||'';
       for(const line of lines){
         if(!line.startsWith('data: ')) continue;
         const data_str=line.slice(6);
@@ -2018,15 +2048,52 @@ function getLangForPlan(plan){
 function buildTravelSystemPromptFront(plan){
   const mode=plan.planning_mode||'P';
   const modeInstr=mode==='J'?'【J型模式】时间精确到15分钟，单线最优路线，强调完成率':'【P型模式】时间块宽松，预留30%弹性时间，提供Plan B';
-  const notes=plan.notes?('\\n⭐ 高优先级备注：'+plan.notes):'';
+  const companions=plan.companions||[];
+  const companionDesc=companions.length?companions.map(c=>`${c.count||1}位${c.type||'成人'}`).join('、'):'独行';
+  const notes=plan.notes?('\n⭐ 高优先级备注：'+plan.notes):'';
   const lang=getLangForPlan(plan);
   const langNote=LANG_INSTRUCTIONS_FRONT[lang]||LANG_INSTRUCTIONS_FRONT.zh;
-  return '你是TripForge，一位拥有20年经验的顶级个性化旅行规划师。\\n'+modeInstr+'\\n用户国籍：'+(plan.nationality||'CN')+'，MBTI：'+(plan.mbti_type||'未知')+'，同行：'+JSON.stringify(plan.companions||[])+'\\n核心原则：推荐小众高性价比选择，每个景点附带实用Tips，输出严格按JSON格式。'+notes+'\\n🌐 强制输出语言：'+langNote;
+  const hotelHint=companions.some(c=>c.type&&(c.type.includes('儿童')||c.type.includes('child')))?
+    '\n🏨 住宿建议：有儿童同行，优先推荐家庭房或套房，考虑儿童设施。':
+    companions.some(c=>c.type&&(c.type.includes('老人')||c.type.includes('senior')))?
+    '\n🏨 住宿建议：有老人同行，优先推荐电梯房、无障碍设施，避免爬楼。':'';
+  return '你是TripForge，一位拥有20年经验的顶级个性化旅行规划师。'+
+    '\n'+modeInstr+
+    '\n用户国籍：'+(plan.nationality||'CN')+'，MBTI：'+(plan.mbti_type||'未知')+'，同行人员：'+companionDesc+
+    '\n核心原则：根据同行人员组成推荐最合适的景点、餐厅和住宿；推荐小众高性价比选择，每个景点附带实用Tips，输出严格按JSON格式。'+
+    notes+hotelHint+
+    '\n🌐 强制输出语言：'+langNote;
 }
 function buildFullPlanPromptFront(plan, extra){
   const dests=(plan.destinations||[]).join(', ')||plan.name||'';
-  const extraNote=extra?('\\n⭐ 补充要求：'+extra):'';
-  return '请为以下旅行生成完整JSON方案：\\n目的地：'+dests+'\\n日期：'+(plan.start_date||'')+'至'+(plan.end_date||'')+'\\n预算：'+(plan.budget_total||0)+' '+(plan.budget_currency||'CNY')+'\\n出行方式：'+(plan.transport_mode||'mixed')+'\\n规划模式：'+(plan.planning_mode==='J'?'J型精细':'P型随性')+extraNote+'\\n\\n严格按以下JSON格式输出，不要输出任何其他内容：\\n{"overview":"行程总览","highlights":["亮点1"],"visa_reminder":"","budget_allocation":{"transport":{"allocated":0,"percentage":0,"details":""},"accommodation":{"allocated":0,"percentage":0,"details":""},"food":{"allocated":0,"percentage":0,"details":""},"tickets":{"allocated":0,"percentage":0,"details":""},"shopping":{"allocated":0,"percentage":0,"details":""},"other":{"allocated":0,"percentage":0,"details":""}},"packing_suggestions":{"clothing":[],"documents":[],"electronics":[],"health":[],"other":[]},"daily_plan":[{"day":1,"date":"'+(plan.start_date||'')+'","theme":"主题","morning":[{"name":"景点名","item_type":"attraction","start_time":"09:00","end_time":"11:30","duration_minutes":150,"ticket_price":60,"ticket_need_booking":false,"transport_from":"","transport_to":"","transport_mode":"","transport_cost":0,"highlights":"亮点","tips":"提示","plan_b":"备选","energy_cost":2,"tags":[],"lat":0,"lng":0}],"afternoon":[],"evening":[],"meals":[{"meal_type":"lunch","name":"餐厅名","budget":80,"cuisine":"菜系","tips":"特色"}],"accommodation":{"name":"酒店名","price":300,"type":"酒店","tips":"位置说明"}}]}';
+  const companions=plan.companions||[];
+  const companionDesc=companions.length?companions.map(c=>`${c.count||1}位${c.type||'成人'}`).join('、'):'独行';
+  const extraNote=extra?('\n⭐ 补充要求：'+extra):'';
+  const startDate=plan.start_date||'';
+  const endDate=plan.end_date||'';
+  const jsonTemplate='{"overview":"行程总览","highlights":["亮点1"],"visa_reminder":"",' +
+    '"budget_allocation":{"transport":{"allocated":0,"percentage":0,"details":"","hotel_suggestions":[]},' +
+    '"accommodation":{"allocated":0,"percentage":0,"details":"","hotel_suggestions":[{"name":"酒店名","price_per_night":300,"type":"酒店","stars":4,"reason":"推荐理由，考虑同行人员"}]},' +
+    '"food":{"allocated":0,"percentage":0,"details":""},' +
+    '"tickets":{"allocated":0,"percentage":0,"details":""},' +
+    '"shopping":{"allocated":0,"percentage":0,"details":""},' +
+    '"other":{"allocated":0,"percentage":0,"details":""}},' +
+    '"packing_suggestions":{"clothing":[],"documents":[],"electronics":[],"health":[],"other":[]},' +
+    '"daily_plan":[{"day":1,"date":"'+startDate+'",' +
+    '"theme":"主题","morning":[{"name":"景点名","item_type":"attraction","start_time":"09:00","end_time":"11:30","duration_minutes":150,"ticket_price":60,"ticket_need_booking":false,"transport_from":"","transport_to":"","transport_mode":"","transport_cost":0,"highlights":"亮点","tips":"提示","plan_b":"备选","energy_cost":2,"tags":[],"lat":0,"lng":0}],' +
+    '"afternoon":[],"evening":[],' +
+    '"meals":[{"meal_type":"lunch","name":"餐厅名","budget":80,"cuisine":"菜系","tips":"特色，适合'+companionDesc+'"}],' +
+    '"accommodation":{"name":"酒店名","price":300,"type":"酒店","tips":"位置说明，适合'+companionDesc+'"}}]}';
+  return '请为以下旅行生成完整JSON方案：' +
+    '\n目的地：'+dests+
+    '\n日期：'+startDate+'至'+endDate+
+    '\n同行人员：'+companionDesc+
+    '\n预算：'+(plan.budget_total||0)+' '+(plan.budget_currency||'CNY')+
+    '\n出行方式：'+(plan.transport_mode||'mixed')+
+    '\n规划模式：'+(plan.planning_mode==='J'?'J型精细':'P型随性')+
+    extraNote+
+    '\n\n⚠️ 住宿建议必填：accommodation.hotel_suggestions 数组，根据同行人员推荐2-3家合适酒店，说明推荐理由。' +
+    '\n\n严格按以下JSON格式输出，不要输出任何其他内容：\n'+jsonTemplate;
 }
 
 // ── Builtin Agents ────────────────────────────────────────────────────────────
@@ -2122,16 +2189,14 @@ const T={
     ai_placeholder:'问我任何旅行问题...',
     saved:'已保存',deleted:'已删除',error:'出错了',apply_success:'方案已应用到行程！',
     tagline:'锻造你的完美旅程',
-    ai_hub_title:'🤖 AI 助手中心', settings_title:'⚙️ 设置中心',
-    start_meeting:'🎙️ 发起会议', new_agent:'+ 新建智能体', refresh:'🔄 刷新列表',
+    ai_hub_title:'🤖 AI 助手中心', settings_title:'⚙️ 设置中心', new_agent:'+ 新建智能体', refresh:'🔄 刷新列表',
     agent_list:'智能体列表', select_agent:'选择智能体开始对话', clear_chat:'清空对话', send:'发送',
     related_plan:'关联计划：', provider:'供应商：', link_plan:'无关联计划',
     setting_nationality:'用户国籍', setting_nationality_desc:'影响 AI 签证提醒和行程建议',
     plan_created:'计划创建成功！', confirm_delete_plan:'确认删除此计划？所有行程数据将一并删除。',
     confirm_delete:'确认删除此条目？', enter_name:'请输入名称', enter_plan_name:'请输入计划名称',
     add_item:'添加行程条目', edit_item:'编辑行程条目',
-    nav_ai_hub:'AI 助手中心', settings_hub:'设置中心',
-    meeting_btn:'发起会议', new_agent_btn:'新建智能体', refresh_list:'刷新列表'
+    nav_ai_hub:'AI 助手中心', settings_hub:'设置中心', new_agent_btn:'新建智能体', refresh_list:'刷新列表'
   },
   en:{
     nav_home:'My Plans',nav_ai:'AI Assistant',nav_settings:'Settings',nav_dashboard:'Dashboard',
@@ -2145,14 +2210,14 @@ const T={
     ai_placeholder:'Ask me anything about your trip...',
     saved:'Saved',deleted:'Deleted',error:'Error',apply_success:'Plan applied to itinerary!',
     tagline:'Forge Your Perfect Journey',
-    ai_hub_title:'🤖 AI Assistant Hub', settings_title:'⚙️ Settings',
-    start_meeting:'🎙️ Start Meeting', new_agent:'+ New Agent', refresh:'🔄 Refresh',
+    ai_hub_title:'🤖 AI Assistant Hub', settings_title:'⚙️ Settings', new_agent:'+ New Agent', refresh:'🔄 Refresh',
     agent_list:'Agent List', select_agent:'Select an agent to start chatting', clear_chat:'Clear Chat', send:'Send',
     related_plan:'Related Plan:', provider:'Provider:', link_plan:'No linked plan',
     setting_nationality:'Nationality', setting_nationality_desc:'Affects AI visa reminders and trip suggestions',
     plan_created:'Plan created successfully!', confirm_delete_plan:'Delete this plan? All itinerary data will be removed.',
     confirm_delete:'Delete this item?', enter_name:'Please enter a name', enter_plan_name:'Please enter a plan name',
-    add_item:'Add Itinerary Item', edit_item:'Edit Itinerary Item'
+    add_item:'Add Itinerary Item', edit_item:'Edit Itinerary Item', new_agent_btn:'+ New Agent',
+    new_agent_btn:'+ New Agent', refresh_list:'🔄 Refresh', 
   }
 };
 function t(key){return(T[S.lang]||T.zh)[key]||key}
@@ -2187,13 +2252,12 @@ function applyI18n(){
   // Fix 6: Update all dynamically rendered headings
   const aiPageH2=document.querySelector('#page-ai .home-header h2');
   if(aiPageH2)aiPageH2.textContent=t('ai_hub_title');
+  const settingsH2=document.querySelector('#page-settings .home-header h2');
   if(settingsH2)settingsH2.textContent=t('settings_title');
 
   // Update buttons in ai page
-  const meetBtn=document.querySelector('#page-ai .home-header button:first-child');
-  if(meetBtn)meetBtn.textContent=t('start_meeting');
-  const agentBtn=document.querySelector('#page-ai .home-header button:last-child');
-  if(agentBtn)agentBtn.textContent=t('new_agent');
+  const agentBtn=document.querySelector('#page-ai .home-header .btn-primary');
+  if(agentBtn)agentBtn.innerHTML='+ <span>'+t('new_agent_btn')+'</span>';
 
   // Update AI page inner labels
   const agentListLabel=document.querySelector('#agent-list-container')?.previousElementSibling;
@@ -2219,40 +2283,41 @@ function applyI18n(){
   else if(aiPanelTitle)aiPanelTitle.innerHTML='🤖 AI 旅行搭子';
 
   // Settings section headers and labels
-  if(S.lang==='en'){
-    document.querySelectorAll('.settings-section-header').forEach(h=>{
-      if(h.textContent.includes('AI 模型'))h.textContent='🤖 AI Model Configuration';
-      if(h.textContent.includes('用户偏好'))h.textContent='👤 User Preferences';
-      if(h.textContent.includes('显示设置'))h.textContent='🎨 Display Settings';
-      if(h.textContent.includes('关于'))h.textContent='ℹ️ About TripForge';
-    });
-    document.querySelectorAll('.settings-row-label').forEach(l=>{
-      if(l.textContent.includes('用户国籍'))l.textContent='Nationality';
-      if(l.textContent.includes('主题模式'))l.textContent='Theme Mode';
-      if(l.textContent.includes('界面语言'))l.textContent='Language';
-      if(l.textContent.includes('默认 AI'))l.textContent='Default AI Provider';
-      if(l.textContent.includes('版本'))l.textContent='Version';
-    });
-    document.querySelectorAll('.settings-row-desc').forEach(d=>{
-      if(d.textContent.includes('签证'))d.textContent='Affects AI visa reminders and trip suggestions';
-      if(d.textContent.includes('跟随系统'))d.textContent='System / Light / Dark';
-      if(d.textContent.includes('切换后'))d.textContent='Takes effect immediately';
-    });
-  } else {
-    document.querySelectorAll('.settings-section-header').forEach(h=>{
-      if(h.textContent.includes('AI Model'))h.textContent='🤖 AI 模型配置';
-      if(h.textContent.includes('User Pref'))h.textContent='👤 用户偏好';
-      if(h.textContent.includes('Display'))h.textContent='🎨 显示设置';
-      if(h.textContent.includes('About'))h.textContent='ℹ️ 关于 TripForge';
-    });
-    document.querySelectorAll('.settings-row-label').forEach(l=>{
-      if(l.textContent==='Nationality')l.textContent='用户国籍';
-      if(l.textContent==='Theme Mode')l.textContent='主题模式';
-      if(l.textContent==='Language')l.textContent='界面语言';
-      if(l.textContent==='Default AI Provider')l.textContent='默认 AI 供应商';
-      if(l.textContent==='Version')l.textContent='版本';
-    });
-  }
+  const zhSectionMap={'AI 模型':'🤖 AI Model Configuration','用户偏好':'👤 User Preferences','显示设置':'🎨 Display Settings','关于':'ℹ️ About TripForge'};
+  const enSectionMap={'AI Model Configuration':'🤖 AI 模型配置','User Preferences':'👤 用户偏好','Display Settings':'🎨 显示设置','About TripForge':'ℹ️ 关于 TripForge'};
+  document.querySelectorAll('.settings-section-header').forEach(h=>{
+    const txt=h.textContent;
+    if(isEN){for(const[zh,en] of Object.entries(zhSectionMap)){if(txt.includes(zh)){h.textContent=en;break;}}}
+    else{for(const[en,zh] of Object.entries(enSectionMap)){if(txt.includes(en.split(' ')[1]||en)){h.textContent=zh;break;}}}
+  });
+  const labelMapZhToEn={'用户国籍':'Nationality','主题模式':'Theme Mode','界面语言':'Language',
+    '默认 AI 供应商':'Default AI Provider','默认AI供应商':'Default AI Provider',
+    '版本':'Version','AI 规划语言':'AI Planning Language'};
+  const labelMapEnToZh=Object.fromEntries(Object.entries(labelMapZhToEn).map(([k,v])=>[v,k]));
+  document.querySelectorAll('.settings-row-label').forEach(l=>{
+    const txt=l.textContent.trim();
+    if(isEN && labelMapZhToEn[txt]) l.textContent=labelMapZhToEn[txt];
+    else if(!isEN && labelMapEnToZh[txt]) l.textContent=labelMapEnToZh[txt];
+  });
+  const descMapZhToEn={'影响 AI 签证提醒':'Affects AI visa reminders and trip suggestions',
+    '跟随系统':'System / Light / Dark','切换后立即生效':'Takes effect immediately',
+    '切换后':'Takes effect immediately'};
+  const descMapEnToZh=Object.fromEntries(Object.entries(descMapZhToEn).map(([k,v])=>[v,k]));
+  document.querySelectorAll('.settings-row-desc').forEach(d=>{
+    const txt=d.textContent.trim();
+    if(isEN){for(const[zh,en] of Object.entries(descMapZhToEn)){if(txt.includes(zh)){d.textContent=en;break;}}}
+    else{for(const[en,zh] of Object.entries(descMapEnToZh)){if(txt.includes(en.split(' ')[0])){d.textContent=zh;break;}}}
+  });
+  // Settings select options
+  const themeEl=document.getElementById('setting-theme');
+  if(themeEl)[...themeEl.options].forEach(o=>{
+    const v=o.value;
+    o.text=v==='system'?(isEN?'Follow System':'跟随系统'):v==='dark'?(isEN?'Dark':'深色'):(isEN?'Light':'浅色');
+  });
+  const langEl=document.getElementById('setting-lang');
+  if(langEl)[...langEl.options].forEach(o=>{
+    o.text=o.value==='zh'?(isEN?'Chinese (Simplified)':'简体中文'):(isEN?'English':'英文');
+  });
 
   // ── AI page static labels ──
   const aiRelated=document.getElementById('ai-related-plan-label');
@@ -2271,28 +2336,7 @@ function applyI18n(){
   if(aiPageGreeting&&(aiPageGreeting.textContent.includes('选择左侧')||aiPageGreeting.textContent.includes('Select an agent')))
     aiPageGreeting.textContent=isEN?'Select an agent on the left to start chatting':'选择左侧智能体，开始你的 AI 对话';
 
-  // ── Meeting modal ──
-  const meetTitle=document.getElementById('meeting-modal-title');
-  if(meetTitle)meetTitle.textContent=isEN?'🎙️ Start AI Meeting':'🎙️ 发起 AI 会议';
-  const meetTopicLabel=document.getElementById('meeting-topic-label');
-  if(meetTopicLabel)meetTopicLabel.textContent=isEN?'Meeting Topic':'会议主题';
-  const meetPlanLabel=document.getElementById('meeting-plan-label');
-  if(meetPlanLabel)meetPlanLabel.textContent=isEN?'Related Plan (optional)':'关联计划（可选）';
-  const meetPlanNone=document.getElementById('meet-plan-none');
-  if(meetPlanNone)meetPlanNone.textContent=isEN?'No linked plan':'无关联计划';
-  const meetAgentsLabel=document.getElementById('meeting-agents-label');
-  if(meetAgentsLabel){const cnt=document.getElementById('meet-agent-count');meetAgentsLabel.innerHTML=isEN?`Agents selected: <span id="meet-agent-count">${cnt?.textContent||0}</span>`:`参与智能体（已选 <span id="meet-agent-count">${cnt?.textContent||0}</span> 个）`;}
-  const meetProvLabel=document.getElementById('meeting-provider-label');
-  if(meetProvLabel)meetProvLabel.textContent=isEN?'AI Provider':'AI 供应商';
-  const meetRoundsLabel=document.getElementById('meeting-rounds-label');
-  if(meetRoundsLabel)meetRoundsLabel.textContent=isEN?'Discussion Rounds':'讨论轮次';
-  const meetCancelBtn=document.getElementById('meeting-cancel-btn');
-  if(meetCancelBtn)meetCancelBtn.textContent=isEN?'Cancel':'取消';
-  const meetStartBtn=document.getElementById('meeting-start-btn');
-  if(meetStartBtn)meetStartBtn.textContent=isEN?'🚀 Start Meeting':'🚀 开始会议';
-  // Meeting rounds options
-  const meetRoundsSel=document.getElementById('meet-rounds');
-  if(meetRoundsSel)[...meetRoundsSel.options].forEach(o=>{o.text=`${o.value} ${isEN?'round(s)':'轮'}`;});
+  // Meeting removed
 
   // ── Settings: AI provider hint ──
   const aiProvHint=document.getElementById('ai-provider-hint');
@@ -2323,12 +2367,61 @@ function applyI18n(){
     CAT_INFO.food.label='🍜 餐饮';CAT_INFO.tickets.label='🎫 门票';
     CAT_INFO.shopping.label='🛍️ 购物';CAT_INFO.other.label='📦 其他';
   }
-  // --- 新增 Tooltip 悬浮多语言支持 ---
+  // Expense modal i18n
+  const expTitle=document.getElementById('expense-modal-title');
+  if(expTitle)expTitle.textContent=isEN?'💸 Record Expense':'💸 记录实际支出';
+  const expCancelBtn=document.getElementById('expense-cancel-btn');
+  if(expCancelBtn)expCancelBtn.textContent=isEN?'Cancel':'取消';
+  // Expense modal labels
+  document.querySelectorAll('#modal-expense .form-label').forEach(l=>{
+    if(l.textContent.includes('分类'))l.textContent=isEN?'Category':'分类';
+    if(l.textContent.includes('金额'))l.textContent=isEN?'Amount':'金额';
+    if(l.textContent.includes('货币'))l.textContent=isEN?'Currency':'货币';
+    if(l.textContent.includes('备注'))l.textContent=isEN?'Note':'备注';
+  });
+  // Save button in expense modal
+  document.querySelectorAll('#modal-expense .btn-primary').forEach(b=>{
+    if(b.textContent.includes('记录')||b.textContent.includes('Record'))b.textContent=isEN?'✅ Record':'✅ 记录支出';
+  });
+  // Tooltips
   if(document.getElementById('btn-ai-gen')) document.getElementById('btn-ai-gen').title = isEN ? 'AI Auto Plan' : 'AI 智能规划';
-  if(document.getElementById('btn-export')) document.getElementById('btn-export').title = isEN ? 'Export Excel' : '导出 Excel';
+  if(document.getElementById('btn-export')) document.getElementById('btn-export').title = isEN ? 'Export CSV' : '导出 CSV';
   if(document.getElementById('btn-toggle-panel')) document.getElementById('btn-toggle-panel').title = isEN ? 'AI Assistant' : 'AI 助手';
   if(document.getElementById('btn-theme')) document.getElementById('btn-theme').title = isEN ? 'Toggle Theme' : '切换主题';
   if(document.getElementById('btn-lang')) document.getElementById('btn-lang').title = isEN ? 'Switch Language' : '切换语言';
+  // Item modal labels
+  document.querySelectorAll('#modal-item .form-label').forEach(l=>{
+    const lc=l.textContent.trim();
+    const itemLabelMap={
+      '时段':'Time Slot','条目类型':'Item Type','名称':'Name',
+      '开始时间':'Start Time','结束时间':'End Time','时长（分钟）':'Duration (min)',
+      '门票价格':'Ticket Price','需要预订':'Requires Booking','预订说明':'Booking Info',
+      '交通起点':'From','交通终点':'To','交通方式':'Transport Mode',
+      '交通时长':'Duration','交通费用':'Transport Cost',
+      '餐饮类型':'Meal Type','餐饮预算':'Meal Budget',
+      '住宿名称':'Hotel Name','住宿价格/晚':'Price/Night',
+      '亮点':'Highlights','实用提示':'Tips','备选方案':'Plan B',
+      '精力消耗':'Energy Cost','地点名称搜索':'Location Search',
+    };
+    if(!isEN && itemLabelMap[lc]){
+      // already zh, skip
+    } else if(isEN && itemLabelMap[lc]){
+      l.textContent=itemLabelMap[lc];
+    } else {
+      // try reverse lookup
+      const revMap=Object.fromEntries(Object.entries(itemLabelMap).map(([k,v])=>[v,k]));
+      if(!isEN && revMap[lc]) l.textContent=revMap[lc];
+    }
+  });
+  // Item modal title is set by openAddItem/editItem via t('add_item') / t('edit_item')
+  // Item modal save button
+  const itemSaveBtn=document.getElementById('item-save-btn');
+  if(itemSaveBtn)itemSaveBtn.textContent=isEN?'Save':'保存';
+  const itemCancelBtn=document.getElementById('item-cancel-btn');
+  if(itemCancelBtn)itemCancelBtn.textContent=isEN?'Cancel':'取消';
+  // Mobile nav labels
+  const mobLabels={home:isEN?'Plans':'计划',dash:isEN?'Dashboard':'看板',ai:'AI',settings:isEN?'Settings':'设置',new:isEN?'New':'新建',days:isEN?'Days':'行程'};
+  ['home','dash','ai','settings','new','days'].forEach(k=>{const el=document.getElementById('mob-label-'+k);if(el)el.textContent=mobLabels[k];});
 }
 
 // ─── API ─────────────────────────────────────────────────────────────────────
@@ -2347,15 +2440,20 @@ function toast(msg,type='info'){
 function navigate(page,plan=null){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.mob-nav-item').forEach(n=>n.classList.remove('active'));
   const nav=document.querySelector(`[data-nav="${page}"]`);
   if(nav)nav.classList.add('active');
+  const mobNav=document.querySelector(`[data-mob-nav="${page}"]`);
+  if(mobNav)mobNav.classList.add('active');
 
   if(page==='home'){
     document.getElementById('page-home').classList.add('active');
     document.getElementById('topbar-title').textContent=t('my_plans');
     document.getElementById('topbar-tabs').classList.add('hidden');
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.add('hidden'));
-    loadPlans();
+    const mobDaysBtnH=document.getElementById('mob-days-btn');
+    if(mobDaysBtnH){mobDaysBtnH.style.display='none';document.getElementById('mobile-day-panel')?.classList.remove('open');}
+    loadPlans(); // always refresh from Firebase when returning home
   } else if(page==='plan'&&plan){
     // Immediately clear stale day state - synchronous, no race possible
     S.currentDayId=null;
@@ -2369,6 +2467,9 @@ function navigate(page,plan=null){
     document.getElementById('topbar-title').textContent=`${plan.emoji||'✈️'} ${plan.name}`;
     document.getElementById('topbar-tabs').classList.remove('hidden');
     ['btn-ai-gen','btn-export','btn-toggle-panel'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+    // Show Days button in mobile nav
+    const mobDaysBtn=document.getElementById('mob-days-btn');
+    if(mobDaysBtn)mobDaysBtn.style.display='';
     updateAIPanelProvider();
     // Clear day-list DOM and show loading state immediately
     document.getElementById('day-list').innerHTML='';
@@ -3115,7 +3216,7 @@ document.addEventListener('click',e=>{
 function openAddItem(slot='morning'){
   S.editItemId=null;
   document.getElementById('item-modal-title').textContent=t('add_item');
-  document.getElementById('item-save-btn').textContent='💾 保存';
+  document.getElementById('item-save-btn').textContent=S.lang==='en'?'💾 Save':'💾 保存';
   ['item-name','item-highlights','item-tips','item-planb','item-from','item-to',
    'item-booking-info','item-tags','item-accom-name','item-transport-duration'].forEach(id=>document.getElementById(id).value='');
   ['item-ticket-price','item-transport-cost','item-lat','item-lng','item-meal-budget','item-accom-price'].forEach(id=>document.getElementById(id).value=0);
@@ -3124,6 +3225,13 @@ function openAddItem(slot='morning'){
   document.getElementById('item-end-time').value='';
   document.getElementById('item-type').value='attraction';
   document.getElementById('item-slot').value=slot;
+  // i18n slot options
+  {const isEN=S.lang==='en';const slotSel=document.getElementById('item-slot');
+  [...slotSel.options].forEach(o=>{o.text=o.value==='morning'?(isEN?'Morning':'上午'):o.value==='afternoon'?(isEN?'Afternoon':'下午'):(isEN?'Evening':'晚上');});}
+  // i18n type options
+  {const isEN=S.lang==='en';const typeSel=document.getElementById('item-type');
+  const typeNames={attraction:isEN?'Attraction':'景点',meal:isEN?'Meal':'餐饮',accommodation:isEN?'Stay':'住宿',transport:isEN?'Transport':'交通',activity:isEN?'Activity':'活动',shopping:isEN?'Shopping':'购物',other:isEN?'Other':'其他'};
+  [...typeSel.options].forEach(o=>{if(typeNames[o.value])o.text=typeNames[o.value];});}
   document.getElementById('item-need-booking').value='0';
   document.getElementById('item-energy').value='2';
   document.getElementById('item-transport-mode').value='';
@@ -3457,7 +3565,7 @@ async function saveBudget(){
   }
   closeModal('modal-budget');
   loadDashboard();
-  toast('预算已保存','success');
+  toast(S.lang==='en'?'Budget saved':'预算已保存','success');
 }
 
 async function addCustomBudgetCategory(){
@@ -3476,7 +3584,27 @@ async function deleteCustomBudgetCat(id){
   openBudgetModal();
 }
 
-function openExpenseModal(){openModal('modal-expense');}
+function openExpenseModal(){
+  const isEN=S.lang==='en';
+  document.getElementById('expense-modal-title').textContent=isEN?'💸 Record Expense':'💸 记录实际支出';
+  // i18n category options
+  const catSel=document.getElementById('exp-category');
+  if(catSel){const catNames={transport:isEN?'Transport':'交通',accommodation:isEN?'Stay':'住宿',food:isEN?'Food':'餐饮',tickets:isEN?'Tickets':'门票',shopping:isEN?'Shopping':'购物',other:isEN?'Other':'其他'};
+  [...catSel.options].forEach(o=>{if(catNames[o.value])o.text=catNames[o.value];});}
+  // i18n labels
+  const lblMap={'分类':'Category','金额':'Amount','货币':'Currency','备注':'Note'};
+  const revMap={'Category':'分类','Amount':'金额','Currency':'货币','Note':'备注'};
+  document.querySelectorAll('#modal-expense .form-label').forEach(l=>{
+    const txt=l.textContent.trim();
+    if(isEN&&lblMap[txt])l.textContent=lblMap[txt];
+    else if(!isEN&&revMap[txt])l.textContent=revMap[txt];
+  });
+  const saveBtn=document.querySelector('#modal-expense .btn-primary');
+  if(saveBtn)saveBtn.textContent=isEN?'✅ Record':'✅ 记录支出';
+  const cancelBtn=document.getElementById('expense-cancel-btn');
+  if(cancelBtn)cancelBtn.textContent=isEN?'Cancel':'取消';
+  openModal('modal-expense');
+}
 async function saveExpense(){
   const amount=parseFloat(document.getElementById('exp-amount').value)||0;
   if(!amount){toast(S.lang==='en'?'Please enter an amount':'请输入金额','error');return;}
@@ -3500,43 +3628,85 @@ async function deleteExpense(id){
 async function deleteTrackerExpense(id){await api('DELETE',`/expenses/${id}`);loadTrackerView();}
 
 // ─── Export ────────────────────────────────────────────────────────────────────
-function exportExcel(){
+async function exportExcel(){
   if(!S.currentPlan){toast(S.lang==='en'?'Please select a plan first':'请先选择计划','error');return;}
   const isEN=S.lang==='en';
-  // Build CSV in browser
-  const rows=[];
   const planName=S.currentPlan.name||'Plan';
+  const rows=[];
+  // ─── Header ───
   rows.push([isEN?'TripForge Export':'TripForge 导出', planName]);
   rows.push([isEN?'Exported':'导出时间', new Date().toLocaleString()]);
+  rows.push([isEN?'Destinations':'目的地', (S.currentPlan.destinations||[]).join('、')]);
+  rows.push([isEN?'Dates':'日期', (S.currentPlan.start_date||'')+' → '+(S.currentPlan.end_date||'')]);
   rows.push([]);
-  rows.push([isEN?'Day':'天数', isEN?'Date':'日期', isEN?'Time Slot':'时段', isEN?'Type':'类型', isEN?'Name':'名称', isEN?'Start':'开始', isEN?'End':'结束', isEN?'Duration(min)':'时长(分)', isEN?'Price':'票价', isEN?'Transport Cost':'交通费', isEN?'Meal Budget':'餐饮预算', isEN?'Stay Price':'住宿价格', isEN?'Highlights':'亮点', isEN?'Tips':'提示']);
+  // ─── Itinerary ───
+  rows.push([isEN?'=== ITINERARY ===':'=== 行程安排 ===']);
+  rows.push([isEN?'Day':'天数', isEN?'Date':'日期', isEN?'Time Slot':'时段', isEN?'Type':'类型',
+             isEN?'Name':'名称', isEN?'Start':'开始', isEN?'End':'结束',
+             isEN?'Duration(min)':'时长(分)', isEN?'Ticket Price':'票价',
+             isEN?'Transport Cost':'交通费', isEN?'Meal Budget':'餐饮预算',
+             isEN?'Stay Price':'住宿价格', isEN?'Highlights':'亮点', isEN?'Tips':'提示', isEN?'Plan B':'备选']);
   const slotMap={morning:isEN?'Morning':'上午',afternoon:isEN?'Afternoon':'下午',evening:isEN?'Evening':'晚上'};
   const typeMap={attraction:isEN?'Attraction':'景点',meal:isEN?'Meal':'餐饮',accommodation:isEN?'Stay':'住宿',transport:isEN?'Transport':'交通',activity:isEN?'Activity':'活动',shopping:isEN?'Shopping':'购物',other:isEN?'Other':'其他'};
-  for(const day of (S.days||[])){
-    const items=(S.currentDayId===day.id?S.currentDayItems:day.items)||[];
+  // Load all days and items if not already loaded
+  let exportDays = S.days||[];
+  if(exportDays.length===0){
+    try{
+      exportDays = await api('GET',`/plans/${S.currentPlan.id}/days`).catch(()=>[]);
+      for(const day of exportDays){
+        if(!day.items) day.items = await api('GET',`/days/${day.id}/items`).catch(()=>[]);
+      }
+    }catch(e){}
+  }
+  for(const day of exportDays){
+    const items = day.id===S.currentDayId ? S.currentDayItems : (day.items||[]);
+    if(!items.length){ rows.push([`Day ${day.day_number}`, day.date||'', isEN?'(No items)':'（暂无行程）']); continue; }
     for(const item of items){
       rows.push([
         `Day ${day.day_number}`, day.date||'',
         slotMap[item.time_slot]||item.time_slot,
         typeMap[item.item_type]||item.item_type,
-        item.name||'',
-        item.start_time||'', item.end_time||'',
-        item.duration_minutes||'',
-        item.ticket_price||'', item.transport_cost||'',
+        item.name||'', item.start_time||'', item.end_time||'',
+        item.duration_minutes||'', item.ticket_price||'', item.transport_cost||'',
         item.meal_budget||'', item.accommodation_price||'',
         (item.highlights||'').replace(/,/g,'；'),
-        (item.tips||'').replace(/,/g,'；')
+        (item.tips||'').replace(/,/g,'；'),
+        (item.plan_b||'').replace(/,/g,'；')
       ]);
     }
   }
-  const csv=rows.map(r=>r.map(c=>'"'+(String(c||'').replace(/"/g,'""'))+'"').join(',')).join('\n');
-  const bom='\uFEFF';
-  const blob=new Blob([bom+csv],{type:'text/csv;charset=utf-8;'});
+  // ─── Packing List ───
+  rows.push([]); rows.push([]);
+  rows.push([isEN?'=== PACKING LIST ===':'=== 行李清单 ===']);
+  rows.push([isEN?'Category':'分类', isEN?'Item':'物品', isEN?'Checked':'已勾选']);
+  const packingItems = S.packing&&S.packing.length ? S.packing :
+    await api('GET',`/plans/${S.currentPlan.id}/packing`).catch(()=>[]);
+  const packCatMap={clothing:isEN?'👕 Clothing':'👕 衣物',documents:isEN?'📄 Documents':'📄 证件',
+    electronics:isEN?'📱 Electronics':'📱 电子设备',health:isEN?'💊 Health':'💊 药品',other:isEN?'🎒 Other':'🎒 其他'};
+  if(packingItems.length){
+    // Group by category
+    const bycat={};
+    for(const p of packingItems){const cat=p.category||'other';if(!bycat[cat])bycat[cat]=[];bycat[cat].push(p);}
+    for(const [cat, items] of Object.entries(bycat)){
+      for(const p of items){
+        rows.push([packCatMap[cat]||cat, p.item_name||'', p.is_checked?'✅':'☐']);
+      }
+    }
+  } else {
+    rows.push([isEN?'(No packing list)':'（暂无行李清单）']);
+  }
+  // ─── Budget Summary ───
+  rows.push([]); rows.push([]);
+  rows.push([isEN?'=== BUDGET ===':'=== 预算汇总 ===']);
+  rows.push([isEN?'Total Budget':'总预算', S.currentPlan.budget_total||0, S.currentPlan.budget_currency||'CNY']);
+  // Build CSV
+  const csv=rows.map(r=>r.map(c=>'"'+(String(c===null||c===undefined?'':c).replace(/"/g,'""'))+'"').join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;
   a.download=`TripForge_${planName}_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();URL.revokeObjectURL(url);
-  toast(isEN?'CSV exported!':'已导出 CSV 文件','success');
+  toast(isEN?'✅ CSV exported (itinerary + packing list)!':'✅ 已导出 CSV（行程 + 行李清单）','success');
 }
 
 // ─── Map View ─────────────────────────────────────────────────────────────────
@@ -3560,11 +3730,11 @@ async function doMapSearch(query){
 async function addMapPoint(r){
   document.getElementById('map-search-results').classList.add('hidden');
   document.getElementById('map-search-input').value='';
-  if(!S.currentDayId){toast('请先选择一天','error');return;}
+  if(!S.currentDayId){toast(S.lang==='en'?'Select a day first':'请先选择一天','error');return;}
   await api('POST',`/days/${S.currentDayId}/items`,{day_id:S.currentDayId,time_slot:'morning',item_type:'attraction',name:r.name.split(',')[0],lat:r.lat,lng:r.lng});
   await selectDay(S.currentDayId);
   initMapView();
-  toast('已添加到行程','success');
+  toast(S.lang==='en'?'Added to itinerary':'已添加到行程','success');
 }
 function clearMapSearch(){document.getElementById('map-search-input').value='';document.getElementById('map-search-results').classList.add('hidden');}
 
@@ -3993,6 +4163,13 @@ async function loadSettings(){
   document.getElementById('setting-theme').value=th;
   document.getElementById('setting-lang').value=S.settings.language||'zh';
   document.getElementById('setting-default-model').value=S.settings.default_model||'deepseek';
+  // i18n the default model select options
+  {const isEN=S.lang==='en';const dmSel=document.getElementById('setting-default-model');
+  if(dmSel){[...dmSel.options].forEach(o=>{
+    const names={deepseek:'DeepSeek',openai:'OpenAI',qwen:isEN?'Qwen':'通义千问',claude:'Claude',gemini:'Gemini',groq:'Groq',moonshot:'Moonshot',zhipu:isEN?'ZhipuAI':'智谱 GLM',custom:isEN?'Custom':'自定义'};
+    if(names[o.value])o.text=names[o.value];
+  });}}
+  applyI18n();
   // nationality setting removed from UI - it's now per-plan
 }
 
@@ -4108,7 +4285,10 @@ function applyLangSetting(val){
   toast(val==='zh'?'已切换为中文':'Switched to English','success');
 }
 
-async function saveSetting(key,val){await api('POST','/settings',{key,value:val}).catch(()=>{});}
+async function saveSetting(key,val){
+  await api('POST','/settings',{key,value:val}).catch(()=>{});
+  if(!S.settings)S.settings={};S.settings[key]=val;
+}
 
 function handleNationalitySetting(val){
   const customInp=document.getElementById('setting-nationality-custom');
@@ -4311,82 +4491,6 @@ function renderMD(text){
   // fallback: simple nl2br
   return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>');
 }
-
-// ─── Meeting ──────────────────────────────────────────────────────────────────
-function openMeetingModal(){
-  const isEN=S.lang==='en';
-  if(!S.agents.length){toast(isEN?'Please create an agent first':'请先创建智能体','error');return;}
-  S.meetingAgentIds=[];
-  const provSel=document.getElementById('meet-provider');
-  provSel.innerHTML=Object.entries(PROVIDERS_INFO).map(([k,v])=>`<option value="${k}">${v.emoji} ${v.name}</option>`).join('');
-  const planSel=document.getElementById('meet-plan');
-  planSel.innerHTML=`<option value="">${isEN?'No linked plan':'无关联计划'}</option>`+S.plans.map(p=>`<option value="${p.id}">${p.emoji||'✈️'} ${p.name}</option>`).join('');
-  if(S.currentPlan)planSel.value=S.currentPlan.id;
-  document.getElementById('meet-topic').placeholder=isEN?'e.g. Analyze the best itinerary for a 5-day Tokyo trip':'如：分析东京5日游的最优行程方案';
-  document.getElementById('meet-agent-select').innerHTML=S.agents.map(a=>`
-    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius3);padding:.5rem .75rem;display:flex;align-items:center;gap:.5rem;cursor:pointer" onclick="toggleMeetAgent('${a.id}',this)" id="meet-agent-${a.id}">
-      <span>${a.emoji||'🤖'}</span><span style="font-size:.82rem">${a.name}</span>
-    </div>`).join('');
-  document.getElementById('meet-agent-count').textContent='0';
-  // Apply i18n to modal
-  applyI18n();
-  openModal('modal-meeting');
-}
-
-function toggleMeetAgent(id,el){
-  const idx=S.meetingAgentIds.indexOf(id);
-  if(idx>=0){S.meetingAgentIds.splice(idx,1);el.style.background='';el.style.borderColor='var(--border)';}
-  else{S.meetingAgentIds.push(id);el.style.background='rgba(108,140,255,.15)';el.style.borderColor='var(--accent)';}
-  document.getElementById('meet-agent-count').textContent=S.meetingAgentIds.length;
-}
-
-async function startMeeting(){
-  const topic=document.getElementById('meet-topic').value.trim();
-  if(!topic){toast('请输入会议主题','error');return;}
-  if(S.meetingAgentIds.length===0){toast('请至少选择一个智能体','error');return;}
-  const provider=document.getElementById('meet-provider').value;
-  const planId=document.getElementById('meet-plan').value;
-  const rounds=parseInt(document.getElementById('meet-rounds').value)||2;
-  closeModal('modal-meeting');
-  const msgs=document.getElementById('ai-page-messages');
-  const isEN=S.lang==='en';
-  msgs.innerHTML=`<div class="meeting-msg meta">🎙️ ${isEN?'Meeting started:':'会议开始：'}${topic}</div>`;
-  document.getElementById('active-agent-name').textContent=isEN?'AI Meeting Mode':'AI 会议模式';
-  document.getElementById('active-agent-emoji').textContent='🎙️';
-  const selectedAgents=S.agents.filter(a=>S.meetingAgentIds.includes(a.id));
-  let history=[];
-  for(let round=1;round<=rounds;round++){
-    const metaEl=document.createElement('div');metaEl.className='meeting-msg meta';
-    metaEl.textContent=`${isEN?'Round':'第'} ${round} ${isEN?'round':'轮'}`;
-    msgs.appendChild(metaEl);msgs.scrollTop=msgs.scrollHeight;
-    for(const agent of selectedAgents){
-      const el=document.createElement('div');el.className='meeting-msg agent';
-      el.innerHTML=`<div style="font-size:.75rem;font-weight:600;color:var(--accent);margin-bottom:.3rem">${agent.emoji||'🤖'} ${agent.name}</div><div class="agent-content"></div>`;
-      msgs.appendChild(el);const contentEl=el.querySelector('.agent-content');msgs.scrollTop=msgs.scrollHeight;
-      let agentBuf='';
-      await new Promise(resolve=>{
-        streamAI('/ai/chat',{plan_id:planId,message:'会议主题：'+topic+'\n\n请从你的角度（'+agent.role+'）分享对这个主题的看法和建议。',provider,agent_id:agent.id,history:history.slice(-6)},
-          c=>{agentBuf+=c;contentEl.innerHTML=renderMD(agentBuf)+'<span class="typing-cursor"></span>';msgs.scrollTop=msgs.scrollHeight;},
-          ()=>{contentEl.innerHTML=renderMD(agentBuf);history.push({role:'assistant',content:`[${agent.name}]: ${agentBuf}`});resolve();},
-          e=>{contentEl.innerHTML=`<span style="color:var(--red)">Error: ${e}</span>`;resolve();}
-        );
-      });
-    }
-  }
-  // Summary
-  const sumEl=document.createElement('div');sumEl.className='meeting-msg summary';
-  sumEl.innerHTML=`<div style="font-size:.75rem;font-weight:600;color:var(--green);margin-bottom:.3rem">📋 ${isEN?'Meeting Summary':'会议总结'}</div><div class="agent-content"></div>`;
-  msgs.appendChild(sumEl);const sumContent=sumEl.querySelector('.agent-content');msgs.scrollTop=msgs.scrollHeight;
-  let sumBuf='';
-  await new Promise(resolve=>{
-    streamAI('/ai/chat',{plan_id:planId,message:'以上是各智能体关于"'+topic+'"的讨论。请用'+( isEN?'English':'中文')+'总结本次会议的核心结论和建议。',provider,agent_id:'',history:history.slice(-10)},
-      c=>{sumBuf+=c;sumContent.innerHTML=renderMD(sumBuf)+'<span class="typing-cursor"></span>';msgs.scrollTop=msgs.scrollHeight;},
-      ()=>{sumContent.innerHTML=renderMD(sumBuf);resolve();},
-      e=>{sumContent.innerHTML=`<span style="color:var(--red)">Error: ${e}</span>`;resolve();}
-    );
-  });
-}
-
 
 // ─── Global Dashboard ─────────────────────────────────────────────────────────
 const GDB_COLORS = ['#6c8cff','#34d399','#f5c842','#f87171','#fb923c','#a78bfa','#22d3ee','#f472b6','#4ade80','#facc15'];
@@ -4661,6 +4765,34 @@ document.addEventListener('click',e=>{
 });
 
 
+// ─── Mobile Day Panel ─────────────────────────────────────────────────────────
+function toggleMobileDayPanel(){
+  const panel = document.getElementById('mobile-day-panel');
+  if(!panel) return;
+  panel.classList.toggle('open');
+  if(panel.classList.contains('open')){
+    const isEN = S.lang==='en';
+    panel.innerHTML = '<div class="mob-day-panel-handle"></div>' +
+      '<div style="font-weight:700;font-size:.9rem;margin-bottom:.75rem">📅 '+(isEN?'Select Day':'选择日期')+'</div>' +
+      (S.days.length ? S.days.map(d=>{
+        const active = d.id===S.currentDayId;
+        const dayLabel = isEN?`Day ${d.day_number}`:`第${d.day_number}天`;
+        return `<div onclick="selectDay('${d.id}');toggleMobileDayPanel()" style="padding:.65rem .75rem;border-radius:var(--radius2);margin-bottom:.35rem;background:${active?'var(--accent)':'var(--bg3)'};color:${active?'#fff':'var(--text)'};cursor:pointer;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:${active?'700':'500'}">${d.notes||dayLabel}</span>
+          <span style="font-size:.78rem;opacity:.8">${d.date||''}</span>
+        </div>`;
+      }).join('') : `<div style="color:var(--text3);text-align:center;padding:1rem">${isEN?'No days yet. Click +Day above':'还没有行程天数，点击顶部+天'}</div>`);
+  }
+}
+// Close mobile day panel when tapping outside
+document.addEventListener('click', e=>{
+  const panel = document.getElementById('mobile-day-panel');
+  if(panel && panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('#mob-days-btn')){
+    panel.classList.remove('open');
+  }
+});
+
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXPOSE GLOBALS — required because <script type="module"> is sandboxed
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -4715,8 +4847,6 @@ window.deleteAgent = deleteAgent;
 window.clearAIPageChat = clearAIPageChat;
 window.sendAIPageChat = sendAIPageChat;
 window.handleAIPageKey = handleAIPageKey;
-window.openMeetingModal = openMeetingModal;
-window.startMeeting = startMeeting;
 window.loadSettings = loadSettings;
 window.openProviderConfig = openProviderConfig;
 window.saveProvider = saveProvider;
@@ -4756,10 +4886,10 @@ window.clearMapSearch = clearMapSearch;
 window.debounceMapSearch = debounceMapSearch;
 window.openBatchImport = openBatchImport;
 window.populateProviderDropdown = populateProviderDropdown;
+window.toggleMobileDayPanel = toggleMobileDayPanel;
 window.renderCompanions = renderCompanions;
 window.renderEPCompanions = renderEPCompanions;
 window.toggleItemExpand = toggleItemExpand;
-window.toggleMeetAgent = toggleMeetAgent;
 window.updateModelDropdown = updateModelDropdown;
 
 window.updateModelDropdown = updateModelDropdown;
@@ -4775,17 +4905,14 @@ window.updateModelDropdown = updateModelDropdown;
   S.lang=localStorage.getItem('tf_lang')||'zh';
   document.documentElement.lang=(S.lang==='en')?'en':'zh-CN';
   applyI18n();
+  // Show home page immediately (don't wait for Firebase)
+  document.getElementById('page-home').classList.add('active');
+  document.getElementById('topbar-title').textContent=(S.lang==='en'?'My Travel Plans':'我的旅行计划');
+  // Show loading state
+  const grid=document.getElementById('plans-grid');
+  if(grid) grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><span class="icon" style="font-size:2.5rem">⏳</span><h3>'+(S.lang==='en'?'Loading your plans...':'加载中...')+'</h3></div>';
+  // Load plans from Firebase
   await loadPlans();
-  // Restore last opened plan + selected day after page refresh
-  try{
-    const _planId = localStorage.getItem('tf_last_plan_id');
-    const _dayId  = localStorage.getItem('tf_last_day_id');
-    if(_planId && S.plans.find(p=>p.id===_planId)){
-      // await openPlan(_planId, _dayId||null);
-      // return;
-    }
-  }catch(e){}
-  navigate('home');
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',e=>{
     if(document.getElementById('setting-theme')?.value==='system'||localStorage.getItem('tf_theme')==='system'){
       document.documentElement.setAttribute('data-theme',e.matches?'dark':'light');
@@ -4794,5 +4921,6 @@ window.updateModelDropdown = updateModelDropdown;
 })();
 
 </script>
+<div id="mobile-day-panel"></div>
 </body>
 </html>
