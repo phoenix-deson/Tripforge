@@ -44,9 +44,28 @@ select option{background:var(--bg2);color:var(--text)}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
 
 /* ── Layout ── */
-#app{display:flex;height:100vh;overflow:hidden}
-#sidebar{width:var(--sidebar-w);background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;position:relative;z-index:500}
-#main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+#app{display:flex;height:100vh;overflow:hidden;position:relative}
+/* Sidebar is always a fixed overlay drawer */
+#sidebar{
+  position:fixed;top:0;left:0;height:100vh;z-index:600;
+  width:var(--sidebar-w);
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;
+  transform:translateX(-100%);
+  transition:transform .28s cubic-bezier(.4,0,.2,1),box-shadow .28s;
+}
+body.sidebar-open #sidebar{
+  transform:translateX(0);
+  box-shadow:4px 0 32px rgba(0,0,0,.4);
+}
+/* Main always takes full width; has left padding when sidebar open on desktop */
+#main{
+  flex:1;overflow-y:auto;display:flex;flex-direction:column;
+  transition:padding-left .28s cubic-bezier(.4,0,.2,1);
+}
+@media(min-width:769px){
+  body.sidebar-open #main{padding-left:var(--sidebar-w);}
+}
 
 /* ── Sidebar ── */
 .sidebar-logo{padding:1.25rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem}
@@ -402,20 +421,12 @@ select option{background:var(--bg2);color:var(--text)}
 
 /* ── Responsive ── */
 @media(max-width:900px){
-  #sidebar{width:180px}
   .dashboard-grid{grid-template-columns:repeat(2,1fr)}
   .chart-grid{grid-template-columns:1fr}
 }
 @media(max-width:768px){
-  /* Sidebar becomes a slide-in drawer */
-  #sidebar{
-    position:fixed;top:0;left:0;height:100vh;z-index:1000;
-    transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
-    box-shadow:4px 0 24px rgba(0,0,0,.35);
-    width:240px!important;
-  }
-  #sidebar.mob-open{transform:translateX(0)}
-  #sidebar-overlay{display:block}
+  /* On mobile: overlay shown when sidebar open, no margin push */
+  body.sidebar-open #sidebar-overlay{display:block}
   #main{padding-bottom:64px}
   #mobile-nav{display:flex}
   .plan-right{display:none}
@@ -425,7 +436,6 @@ select option{background:var(--bg2);color:var(--text)}
   #topbar-tabs .tab-btn{padding:.35rem .45rem;font-size:.72rem}
   .home-header{flex-wrap:wrap;gap:.5rem}
   .plans-grid{grid-template-columns:1fr}
-  #hamburger-btn{display:flex}
 }
 @media(max-width:480px){
   .plans-grid{grid-template-columns:1fr}
@@ -440,22 +450,23 @@ select option{background:var(--bg2);color:var(--text)}
 }
 #mobile-day-panel.open{display:block}
 .mob-day-panel-handle{width:36px;height:4px;background:var(--border);border-radius:99px;margin:0 auto .75rem;}
-@media(min-width:769px){#mobile-day-panel{display:none!important}}
+/* Day panel only on mobile */ @media(min-width:769px){#mobile-day-panel{display:none!important}}
 
-/* Sidebar overlay (mobile) */
+/* Sidebar overlay - shown on mobile when sidebar open */
 #sidebar-overlay{
-  display:none;position:fixed;inset:0;z-index:999;
+  display:none;position:fixed;inset:0;z-index:599;
   background:rgba(0,0,0,.45);backdrop-filter:blur(2px);
 }
-/* Hamburger button */
+/* Hamburger button - always visible */
 #hamburger-btn{
-  display:none;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:center;
   width:38px;height:38px;border-radius:var(--radius3);
   background:var(--surface);border:1px solid var(--border);
   cursor:pointer;color:var(--text);flex-shrink:0;margin-right:.3rem;
   transition:background .15s;
 }
 #hamburger-btn:hover{background:var(--bg3)}
+#hamburger-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 #hamburger-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
 
 /* Mobile bottom nav */
@@ -668,11 +679,11 @@ select option{background:var(--bg2);color:var(--text)}
   <div class="modal-body">
     <div class="form-row mb-3">
       <div class="form-group">
-        <label class="form-label">计划名称 *</label>
+        <label class="form-label" id="ep-name-label">计划名称 *</label>
         <input id="ep-name" class="form-input" placeholder="我的东京之旅">
       </div>
       <div class="form-group">
-        <label class="form-label">状态</label>
+        <label class="form-label" id="ep-status-label">状态</label>
         <select id="ep-status" class="form-input">
           <option value="planning">📋 规划中</option>
           <option value="ongoing">🚀 进行中</option>
@@ -701,17 +712,28 @@ select option{background:var(--bg2);color:var(--text)}
         <div style="display:flex;gap:.4rem">
           <input id="ep-budget" type="number" class="form-input" min="0">
           <select id="ep-currency" class="form-input" style="width:90px">
-            <option>CNY</option><option>USD</option><option>JPY</option><option>EUR</option><option>GBP</option><option>KRW</option><option>HKD</option><option>SGD</option><option>AUD</option>
+            <option>CNY</option><option>USD</option><option>JPY</option><option>EUR</option><option>GBP</option>
+            <option>KRW</option><option>HKD</option><option>SGD</option><option>AUD</option><option>INR</option>
+            <option>THB</option><option>MYR</option><option>VND</option><option>IDR</option><option>PHP</option>
+            <option>TWD</option><option>CHF</option><option>CAD</option><option>NZD</option><option>AED</option>
+            <option>TRY</option><option>BRL</option><option>ZAR</option>
           </select>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">国籍</label>
+        <label class="form-label" id="ep-nationality-label">国籍</label>
         <select id="ep-nationality" class="form-input">
           <option value="CN">🇨🇳 中国大陆</option>
-          <option value="US">🇺🇸 美国</option><option value="JP">🇯🇵 日本</option><option value="KR">🇰🇷 韩国</option>
-          <option value="GB">🇬🇧 英国</option><option value="DE">🇩🇪 德国</option><option value="SG">🇸🇬 新加坡</option>
-          <option value="AU">🇦🇺 澳大利亚</option><option value="OTHER">🌍 其他</option>
+          <option value="TW">🇹🇼 台湾</option><option value="HK">🇭🇰 香港</option><option value="MO">🇲🇴 澳门</option>
+          <option value="US">🇺🇸 美国 USA</option><option value="JP">🇯🇵 日本 Japan</option><option value="KR">🇰🇷 韩国 Korea</option>
+          <option value="GB">🇬🇧 英国 UK</option><option value="DE">🇩🇪 德国 Germany</option><option value="FR">🇫🇷 法国 France</option>
+          <option value="AU">🇦🇺 澳大利亚 Australia</option><option value="CA">🇨🇦 加拿大 Canada</option>
+          <option value="SG">🇸🇬 新加坡 Singapore</option><option value="MY">🇲🇾 马来西亚 Malaysia</option>
+          <option value="TH">🇹🇭 泰国 Thailand</option><option value="PH">🇵🇭 菲律宾 Philippines</option>
+          <option value="VN">🇻🇳 越南 Vietnam</option><option value="ID">🇮🇩 印尼 Indonesia</option>
+          <option value="IN">🇮🇳 印度 India</option><option value="RU">🇷🇺 俄罗斯 Russia</option>
+          <option value="BR">🇧🇷 巴西 Brazil</option><option value="ZA">🇿🇦 南非 South Africa</option>
+          <option value="OTHER">🌍 其他 Other</option>
         </select>
       </div>
     </div>
@@ -1180,7 +1202,7 @@ select option{background:var(--bg2);color:var(--text)}
         <div class="wordmark">TripForge</div>
         <div class="tagline" id="tagline-text">锻造你的完美旅程</div>
       </div>
-      <button id="sidebar-close-btn" onclick="toggleSidebar()" style="display:none;background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.3rem;padding:.2rem .4rem;border-radius:6px;line-height:1" aria-label="Close">✕</button>
+      <button id="sidebar-close-btn" onclick="toggleSidebar()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:1.3rem;padding:.2rem .4rem;border-radius:6px;line-height:1;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text3)'" aria-label="Close">✕</button>
     </div>
     <div class="nav-section" id="nav-main-label">主导航</div>
     <div class="nav-item active" data-nav="home" onclick="navigate('home')">
@@ -1983,12 +2005,16 @@ async function streamAI(path, body, onChunk, onDone, onError){
 
   // Build messages
   const msgs = [];
-  // System prompt
   let systemPrompt = '';
   if(path === '/ai/chat'){
-    const agent = body.agent_id ? (S.agents||[]).find(a=>a.id===body.agent_id) : null;
-    if(agent&&agent.system_prompt) systemPrompt = agent.system_prompt;
-    else systemPrompt = '你是TripForge，一位专业的旅行规划师，擅长为用户提供个性化旅行建议。';
+    // Allow _system override (used by two-phase planner)
+    if(body._system){
+      systemPrompt = body._system;
+    } else {
+      const agent = body.agent_id ? (S.agents||[]).find(a=>a.id===body.agent_id) : null;
+      if(agent&&agent.system_prompt) systemPrompt = agent.system_prompt;
+      else systemPrompt = '你是TripForge，一位专业的旅行规划师，擅长为用户提供个性化旅行建议。';
+    }
     if(body.history) for(const h of body.history){ if(h.role&&h.content) msgs.push({role:h.role, content:h.content}); }
     msgs.push({role:'user', content:body.message||''});
   } else if(path === '/ai/generate'){
@@ -2285,6 +2311,9 @@ function applyI18n(){
   if(settingsH2)settingsH2.textContent=t('settings_title');
 
   // Update buttons in ai page
+  // MBTI quiz button
+  const mbtiQuizBtn=document.getElementById('mbti-quiz-btn');
+  if(mbtiQuizBtn)mbtiQuizBtn.textContent=isEN?'🔮 Discover Your Travel Personality':'🔮 AI 帮你判断旅行人格';
   const agentBtn=document.querySelector('#page-ai .home-header .btn-primary');
   if(agentBtn)agentBtn.innerHTML='+ <span>'+t('new_agent_btn')+'</span>';
 
@@ -2872,6 +2901,11 @@ async function openEditPlanModal(planId){
   document.getElementById('ep-notes-label').textContent=isEN?'Notes':'备注';
   document.getElementById('ep-cancel-btn').textContent=isEN?'Cancel':'取消';
   document.getElementById('ep-save-btn').textContent=isEN?'💾 Save Changes':'💾 保存修改';
+  const epNameLbl=document.getElementById('ep-name-label');if(epNameLbl)epNameLbl.textContent=isEN?'Plan Name *':'计划名称 *';
+  document.getElementById('ep-name').placeholder=isEN?'My Tokyo Trip':'我的东京之旅';
+  const epStatusLbl=document.getElementById('ep-status-label');if(epStatusLbl)epStatusLbl.textContent=isEN?'Status':'状态';
+  const epBudgetLbl=document.getElementById('ep-budget-label');if(epBudgetLbl)epBudgetLbl.textContent=isEN?'Budget':'预算';
+  const epNatLbl=document.getElementById('ep-nationality-label');if(epNatLbl)epNatLbl.textContent=isEN?'Nationality':'国籍';
   // Update status select options
   const statusSel = document.getElementById('ep-status');
   if(isEN) {
@@ -2881,6 +2915,8 @@ async function openEditPlanModal(planId){
     statusSel.options[0].text='📋 规划中'; statusSel.options[1].text='🚀 进行中';
     statusSel.options[2].text='✅ 已完成'; statusSel.options[3].text='❌ 已取消';
   }
+  document.getElementById('ep-name').value=plan.name||'';
+  document.getElementById('ep-status').value=plan.status||'planning';
   document.getElementById('ep-start').value=plan.start_date||'';
   document.getElementById('ep-end').value=plan.end_date||'';
   document.getElementById('ep-dest').value=Array.isArray(plan.destinations)?plan.destinations.join(', '):(typeof plan.destinations==='string'&&plan.destinations.startsWith('['))?JSON.parse(plan.destinations).join(', '):plan.destinations||'';
@@ -3636,6 +3672,9 @@ function openExpenseModal(){
   if(saveBtn)saveBtn.textContent=isEN?'✅ Record':'✅ 记录支出';
   const cancelBtn=document.getElementById('expense-cancel-btn');
   if(cancelBtn)cancelBtn.textContent=isEN?'Cancel':'取消';
+  const expDesc=document.getElementById('exp-desc');
+  if(expDesc)expDesc.placeholder=isEN?'Brief description of this expense':'简单描述这笔消费';
+  const expNoteLabel=document.querySelector('#modal-expense .form-label:last-of-type');
   openModal('modal-expense');
 }
 async function saveExpense(){
@@ -4087,66 +4126,277 @@ function openAIGenModal(){
   openModal('modal-ai-gen');
 }
 
+// ─── Two-Phase AI Planning ─────────────────────────────────────────────────────
+
+// Phase 1: Task Planner - generates macro overview + day themes
+function buildPlannerSystemPrompt(plan){
+  const mode=plan.planning_mode||'P';
+  const modeInstr=mode==='J'?'J-type: precise timing, optimal single-route, prioritize completion':'P-type: loose time blocks, 30% buffer, always provide Plan B';
+  const companions=plan.companions||[];
+  const totalPax=companions.reduce((s,c)=>s+(c.count||1),0)||(1);
+  const compDesc=companions.length?companions.map(c=>`${c.count||1} ${c.type}`).join(', '):'solo traveler';
+  const hasChild=companions.some(c=>c.type&&(c.type.includes('child')||c.type.includes('儿童')));
+  const hasElder=companions.some(c=>c.type&&(c.type.includes('elder')||c.type.includes('老人')||c.type.includes('senior')));
+  const lang=getLangForPlan(plan);
+  const langNote=LANG_INSTRUCTIONS_FRONT[lang]||LANG_INSTRUCTIONS_FRONT.zh;
+  const hotelHint=hasChild?'\n🏨 Hotel: family rooms or suites required, child-friendly facilities.':
+    hasElder?'\n🏨 Hotel: elevator access, no-step entry, accessible facilities.':
+    totalPax>=4?'\n🏨 Hotel: consider connecting rooms or larger units for group.':'';
+  return `You are TripForge, an elite travel strategist with 20 years experience.
+Mode: ${modeInstr}
+Party: ${compDesc} (total ${totalPax} people)
+Nationality: ${plan.nationality||'CN'}, MBTI: ${plan.mbti_type||'unknown'}
+${hotelHint}
+${plan.notes?'⭐ Priority notes: '+plan.notes:''}
+Core rules: tailor every recommendation to the travel party composition; suggest lesser-known high-value options; strict JSON output.
+🌐 ${langNote}`;
+}
+
+function buildPlannerPrompt(plan){
+  const dests=(plan.destinations||[]).join(', ')||plan.name||'';
+  const companions=plan.companions||[];
+  const totalPax=companions.reduce((s,c)=>s+(c.count||1),0)||(1);
+  const compDesc=companions.length?companions.map(c=>`${c.count||1} ${c.type}`).join(', '):'solo';
+  const startDate=plan.start_date||'';
+  const endDate=plan.end_date||'';
+  // Count days
+  let numDays=1;
+  if(startDate&&endDate){
+    const d1=new Date(startDate),d2=new Date(endDate);
+    numDays=Math.max(1,Math.round((d2-d1)/(86400000))+1);
+  }
+  const budget=plan.budget_total||0;
+  const currency=plan.budget_currency||'CNY';
+  return `Plan a ${numDays}-day trip to ${dests}.
+Party: ${compDesc} (${totalPax} people total)
+Dates: ${startDate} to ${endDate}
+Budget: ${budget} ${currency} total (≈${totalPax?Math.round(budget/totalPax):budget} per person)
+Transport: ${plan.transport_mode||'mixed'}
+Style: ${plan.planning_mode==='J'?'detailed/structured':'flexible/relaxed'}
+${plan.extra_prompt?'Extra requirements: '+plan.extra_prompt:''}
+
+Output ONLY this JSON (no markdown, no explanation):
+{
+  "overview": "trip overview 2-3 sentences",
+  "highlights": ["highlight1","highlight2","highlight3"],
+  "visa_reminder": "visa info or empty string",
+  "total_days": ${numDays},
+  "party_summary": "${compDesc}",
+  "budget_allocation": {
+    "transport": {"allocated": 0, "percentage": 0, "details": ""},
+    "accommodation": {"allocated": 0, "percentage": 0, "details": "",
+      "hotel_suggestions": [{"name":"Hotel Name","price_per_night":0,"type":"hotel","stars":4,"reason":"why suitable for this party","suitable_for":"${compDesc}"}]},
+    "food": {"allocated": 0, "percentage": 0, "details": ""},
+    "tickets": {"allocated": 0, "percentage": 0, "details": ""},
+    "shopping": {"allocated": 0, "percentage": 0, "details": ""},
+    "other": {"allocated": 0, "percentage": 0, "details": ""}
+  },
+  "packing_suggestions": {"clothing":[],"documents":[],"electronics":[],"health":[],"other":[]},
+  "day_themes": [
+    {"day":1,"date":"${startDate}","theme":"Day theme","area":"Main area to cover","key_spots":["spot1","spot2"],"accommodation_area":"Where to stay"}
+  ]
+}`;
+}
+
+// Phase 2: Day Planner - generates detailed schedule for ONE day
+function buildDayPlannerSystemPrompt(plan, macro){
+  const companions=plan.companions||[];
+  const totalPax=companions.reduce((s,c)=>s+(c.count||1),0)||(1);
+  const compDesc=companions.length?companions.map(c=>`${c.count||1} ${c.type}`).join(', '):'solo';
+  const lang=getLangForPlan(plan);
+  const langNote=LANG_INSTRUCTIONS_FRONT[lang]||LANG_INSTRUCTIONS_FRONT.zh;
+  return `You are TripForge Day Planner. Create detailed hourly itinerary for ONE day.
+Party: ${compDesc} (${totalPax} people). Tailor everything to them.
+Trip context: ${macro.overview||''}. Hotel area: see day theme.
+Mode: ${plan.planning_mode==='J'?'J-type: precise 15-min slots':'P-type: flexible time blocks with Plan B'}
+🌐 ${langNote}`;
+}
+
+function buildDayPlannerPrompt(plan, macro, dayTheme, dayIndex){
+  const companions=plan.companions||[];
+  const totalPax=companions.reduce((s,c)=>s+(c.count||1),0)||(1);
+  const compDesc=companions.length?companions.map(c=>`${c.count||1} ${c.type}`).join(', '):'solo';
+  const hasChild=companions.some(c=>c.type&&(c.type.includes('child')||c.type.includes('儿童')));
+  const hasElder=companions.some(c=>c.type&&(c.type.includes('elder')||c.type.includes('老人')));
+  const budget=macro.budget_allocation||{};
+  const dailyFood=budget.food?Math.round((budget.food.allocated||0)/( macro.total_days||1)):0;
+  const dailyTickets=budget.tickets?Math.round((budget.tickets.allocated||0)/(macro.total_days||1)):0;
+  const hotelArea=dayTheme.accommodation_area||'city center';
+  const keySpots=(dayTheme.key_spots||[]).join(', ');
+  const childNote=hasChild?' (child-friendly options, no long waits)':'';
+  const elderNote=hasElder?' (accessible, not too much walking)':'';
+  return `Day ${dayTheme.day} of ${macro.total_days||'?'}: ${dayTheme.theme}
+Date: ${dayTheme.date}
+Area to cover: ${dayTheme.area||''}
+Key spots planned: ${keySpots}
+Party: ${compDesc}${childNote}${elderNote}
+Daily food budget: ≈${dailyFood} ${plan.budget_currency||'CNY'} (for ${totalPax} people)
+Daily tickets budget: ≈${dailyTickets} ${plan.budget_currency||'CNY'}
+Tonight stay area: ${hotelArea}
+${dayIndex===0?'Note: first day - account for arrival/check-in time.':''}
+${dayIndex===(macro.total_days-1)?'Note: last day - account for check-out and departure.':''}
+
+Output ONLY this JSON:
+{
+  "day": ${dayTheme.day},
+  "date": "${dayTheme.date}",
+  "theme": "${dayTheme.theme}",
+  "morning": [{"name":"","item_type":"attraction","start_time":"09:00","end_time":"11:00","duration_minutes":120,"ticket_price":0,"ticket_need_booking":false,"transport_from":"","transport_to":"","transport_mode":"","transport_cost":0,"highlights":"","tips":"","plan_b":"","energy_cost":2,"tags":[],"lat":0,"lng":0}],
+  "afternoon": [],
+  "evening": [],
+  "meals": [{"meal_type":"lunch","name":"","budget":${Math.round(dailyFood/3)},"cuisine":"","tips":"suitable for ${compDesc}"}],
+  "accommodation": {"name":"","price":${budget.accommodation?Math.round((budget.accommodation.allocated||0)/(macro.total_days||1)):300},"type":"hotel","tips":"in ${hotelArea}, suitable for ${compDesc}"}
+}`;
+}
+
+// ─── Main Two-Phase Generate ───────────────────────────────────────────────────
 async function startAIGenerate(){
+  if(!S.currentPlan){toast(S.lang==='en'?'Please select a plan first':'请先选择计划','error');return;}
   const prov=S.currentAIProvider||'deepseek';
   const model=document.getElementById('ai-gen-model-sel').value||'';
-  const extra=document.getElementById('ai-extra-prompt').value;
+  const extra=document.getElementById('ai-extra-prompt').value||'';
   const btn=document.getElementById('ai-gen-btn');
-  const isEN2=S.lang==='en';
-  btn.disabled=true;btn.innerHTML=`<span class="spinner"></span> ${isEN2?'Planning...':'智能规划中...'}`;
+  const isEN=S.lang==='en';
+  const plan={...S.currentPlan, extra_prompt:extra};
+
+  // Count days
+  let numDays=1;
+  if(plan.start_date&&plan.end_date){
+    const d1=new Date(plan.start_date),d2=new Date(plan.end_date);
+    numDays=Math.max(1,Math.round((d2-d1)/86400000)+1);
+  }
+
+  btn.disabled=true;
+  const box=document.getElementById('ai-stream-box');
+  box.innerHTML='';
   document.getElementById('ai-gen-progress').classList.remove('hidden');
   document.getElementById('ai-gen-output').classList.remove('hidden');
   document.getElementById('ai-gen-result').classList.add('hidden');
-  S.aiJsonBuffer='';
-  const box=document.getElementById('ai-stream-box');
-  box.innerHTML='';
-  let progress=5;
-  const pi=setInterval(()=>{progress=Math.min(progress+2,90);document.getElementById('ai-progress-fill').style.width=progress+'%';},500);
 
-  let buf='';
-  await streamAI('/ai/generate',{plan_id:S.currentPlan?.id, provider:prov, model, mode:'full', prompt:extra},
-    c=>{
-      buf+=c;
-      // Try to show progress
-      box.textContent=buf.slice(-500);
-      box.scrollTop=box.scrollHeight;
-    },
-    ()=>{
-      clearInterval(pi); document.getElementById('ai-progress-fill').style.width='100%';
-      btn.disabled=false; btn.textContent=isEN2?'✨ Generate Again':'✨ 开始生成';
-      document.getElementById('ai-gen-progress').classList.add('hidden');
-      try{
-        const clean=buf.replace(/```json|```/g,'').trim();
-        const startIdx=clean.indexOf('{');
-        const plan=JSON.parse(startIdx>=0?clean.slice(startIdx):clean);
-        S.lastAIPlan=plan;
-        document.getElementById('ai-gen-result').classList.remove('hidden');
-        const budget=plan.budget_allocation||{};
-        const budgetHtml=Object.entries(budget).map(([key,val])=>{
-          const lbl=isEN2?{transport:'Transport',accommodation:'Stay',food:'Food',tickets:'Tickets',shopping:'Shopping',other:'Other'}[key]||key:{transport:'交通',accommodation:'住宿',food:'餐饮',tickets:'门票',shopping:'购物',other:'其他'}[key]||key;
-          return `<span>${lbl}: ${val.percentage||0}%</span>`;
-        }).join(' · ');
-        const daysLabel=isEN2?'days detailed itinerary ready':'天详细行程已就绪';
-        document.getElementById('ai-plan-preview').innerHTML=`
-          <div style="margin-bottom:.8rem;border-bottom:1px solid var(--border);padding-bottom:.5rem"><b>${isEN2?'📋 Overview:':'📋 行程概述:'}</b> ${plan.overview||''}</div>
-          <div style="margin-top:.35rem"><b>${isEN2?'✨ Highlights:':'✨ 亮点:'}</b> ${(plan.highlights||[]).join(' · ')}</div>
-          ${plan.visa_reminder?`<div style="margin-top:.35rem;color:var(--purple)"><b>${isEN2?'🛂 Visa:':'🛂 签证:'}</b> ${plan.visa_reminder}</div>`:''}
-          <div style="margin-top:.8rem;padding:.8rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
-            <div style="font-size:.85rem;color:var(--text3);margin-bottom:8px;font-weight:600">${isEN2?'💰 Budget Allocation:':'💰 预算建议分配:'}</div>
-            <div style="font-size:.9rem;display:flex;flex-wrap:wrap;gap:12px">${budgetHtml}</div>
-          </div>
-          <div style="margin-top:.8rem"><b>${isEN2?'📅 Days:':'📅 天数:'}</b> ${(plan.daily_plan||[]).length} ${daysLabel}</div>`;
-      }catch(e){
-        toast(isEN2?'Parse error, please retry':'AI输出解析失败，请重试','error');
-        btn.disabled=false;btn.textContent=isEN2?'✨ Start Generation':'✨ 开始生成';
-      }
-    },
-    e=>{
-      clearInterval(pi);
-      btn.disabled=false;btn.textContent=isEN2?'✨ Start Generation':'✨ 开始生成';
-      toast(e,'error');
+  const setProgress=(pct,label)=>{
+    document.getElementById('ai-progress-fill').style.width=pct+'%';
+    btn.innerHTML=`<span class="spinner"></span> ${label}`;
+    box.innerHTML+=`<div style="color:var(--accent);font-size:.8rem;margin:.3rem 0">▶ ${label}</div>`;
+    box.scrollTop=box.scrollHeight;
+  };
+
+  const appendLog=(text)=>{
+    const d=document.createElement('div');
+    d.style.cssText='font-size:.75rem;color:var(--text2);white-space:pre-wrap;max-height:80px;overflow:hidden';
+    d.textContent=text.slice(-300);
+    box.appendChild(d);box.scrollTop=box.scrollHeight;
+  };
+
+  const streamToString=(path,body)=>new Promise((resolve,reject)=>{
+    let buf='';
+    streamAI(path,{...body,provider:prov,model},
+      c=>{buf+=c;appendLog(buf);},
+      ()=>resolve(buf),
+      e=>reject(new Error(e))
+    );
+  });
+
+  const parseJSON=(raw)=>{
+    const clean=raw.replace(/```json|```/g,'').trim();
+    const i=clean.indexOf('{');
+    return JSON.parse(i>=0?clean.slice(i):clean);
+  };
+
+  try{
+    // ── Phase 1: Task Planner ──────────────────────────────────────
+    setProgress(5, isEN?`Phase 1/2: Route Planner (${numDays} days)`:`第1阶段/2：路线规划师（${numDays}天）`);
+    const macroRaw=await streamToString('/ai/chat',{
+      _system: buildPlannerSystemPrompt(plan),
+      message: buildPlannerPrompt(plan),
+      history:[]
+    });
+    const macro=parseJSON(macroRaw);
+    macro.total_days=numDays;
+    setProgress(30, isEN?'Route plan done! Starting day-by-day planning...':'路线规划完成！开始逐日行程制定...');
+
+    // Ensure day_themes has all days
+    const themes=macro.day_themes||[];
+    const startD=plan.start_date?new Date(plan.start_date):new Date();
+    while(themes.length<numDays){
+      const idx=themes.length;
+      const d=new Date(startD);d.setDate(d.getDate()+idx);
+      themes.push({day:idx+1,date:d.toISOString().slice(0,10),theme:`Day ${idx+1}`,area:'',key_spots:[],accommodation_area:'city center'});
     }
-  );
+
+    // ── Phase 2: Day Planner (one request per day) ─────────────────
+    const dailyPlans=[];
+    for(let i=0;i<numDays;i++){
+      const dayTheme=themes[i];
+      const pct=30+Math.round(60*(i+1)/numDays);
+      setProgress(pct, isEN
+        ?`Phase 2/${numDays}: Day ${i+1} itinerary (${dayTheme.theme||''})`
+        :`第2阶段 Day${i+1}/${numDays}：${dayTheme.theme||'行程制定'}`);
+      const dayRaw=await streamToString('/ai/chat',{
+        _system: buildDayPlannerSystemPrompt(plan,macro),
+        message: buildDayPlannerPrompt(plan,macro,dayTheme,i),
+        history:[]
+      });
+      const dayPlan=parseJSON(dayRaw);
+      dailyPlans.push(dayPlan);
+    }
+
+    // ── Assemble final plan ────────────────────────────────────────
+    setProgress(95, isEN?'Assembling full itinerary...':'整合完整行程...');
+    const finalPlan={
+      overview:macro.overview||'',
+      highlights:macro.highlights||[],
+      visa_reminder:macro.visa_reminder||'',
+      budget_allocation:macro.budget_allocation||{},
+      packing_suggestions:macro.packing_suggestions||{},
+      daily_plan:dailyPlans
+    };
+    S.lastAIPlan=finalPlan;
+
+    document.getElementById('ai-progress-fill').style.width='100%';
+    document.getElementById('ai-gen-progress').classList.add('hidden');
+    document.getElementById('ai-gen-result').classList.remove('hidden');
+    btn.disabled=false;
+    btn.textContent=isEN?'✨ Generate Again':'✨ 重新生成';
+
+    // Render result preview
+    const budget=finalPlan.budget_allocation||{};
+    const budgetHtml=Object.entries(budget).map(([key,val])=>{
+      const lbl=isEN?{transport:'Transport',accommodation:'Stay',food:'Food',tickets:'Tickets',shopping:'Shopping',other:'Other'}[key]||key
+                    :{transport:'交通',accommodation:'住宿',food:'餐饮',tickets:'门票',shopping:'购物',other:'其他'}[key]||key;
+      return `<span>${lbl}: ${val.percentage||0}%</span>`;
+    }).join(' · ');
+
+    // Hotel suggestions
+    const hotelSuggestions=(budget.accommodation?.hotel_suggestions||[]).slice(0,3);
+    const hotelHtml=hotelSuggestions.length?`
+      <div style="margin-top:.8rem;padding:.8rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:.85rem;font-weight:600;color:var(--text2);margin-bottom:6px">🏨 ${isEN?'Hotel Suggestions':'酒店建议'}</div>
+        ${hotelSuggestions.map(h=>`<div style="font-size:.82rem;padding:.35rem 0;border-bottom:1px solid var(--border)">
+          <b>${h.name}</b> · ${h.stars||'?'}⭐ · ${h.price_per_night||'?'}${budget.accommodation?.currency||plan.budget_currency||'CNY'}/night
+          <div style="color:var(--text3);font-size:.78rem">${h.reason||''}</div>
+        </div>`).join('')}
+      </div>`:'';
+
+    document.getElementById('ai-plan-preview').innerHTML=`
+      <div style="margin-bottom:.8rem;border-bottom:1px solid var(--border);padding-bottom:.5rem">
+        <b>📋 ${isEN?'Overview':'行程概述'}:</b> ${finalPlan.overview}
+      </div>
+      <div style="margin-top:.35rem"><b>✨ ${isEN?'Highlights':'亮点'}:</b> ${(finalPlan.highlights||[]).join(' · ')}</div>
+      ${finalPlan.visa_reminder?`<div style="margin-top:.35rem;color:var(--purple)"><b>🛂 ${isEN?'Visa':'签证'}:</b> ${finalPlan.visa_reminder}</div>`:''}
+      <div style="margin-top:.8rem;padding:.8rem;background:var(--bg3);border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:.85rem;color:var(--text3);margin-bottom:8px;font-weight:600">💰 ${isEN?'Budget Allocation':'预算分配'}</div>
+        <div style="font-size:.9rem;display:flex;flex-wrap:wrap;gap:12px">${budgetHtml}</div>
+      </div>
+      ${hotelHtml}
+      <div style="margin-top:.8rem"><b>📅 ${isEN?'Days':'天数'}:</b> ${dailyPlans.length} ${isEN?'days planned':'天详细行程已就绪'}</div>`;
+
+  }catch(e){
+    document.getElementById('ai-gen-progress').classList.add('hidden');
+    btn.disabled=false;btn.textContent=isEN?'✨ Try Again':'✨ 重新生成';
+    toast((isEN?'AI planning failed: ':'AI规划失败：')+e.message,'error');
+    box.innerHTML+=`<div style="color:var(--red);margin-top:.5rem">❌ ${e.message}</div>`;
+    box.scrollTop=box.scrollHeight;
+  }
 }
 
 async function applyAIPlan(){
@@ -4163,16 +4413,28 @@ async function applyAIPlan(){
 }
 
 // ─── MBTI Quiz ────────────────────────────────────────────────────────────────
-const MBTI_QUESTIONS=[
+const MBTI_QUESTIONS_ZH=[
   {q:'规划旅行时，你更倾向于？',a:'提前做好详细计划',b:'到了再说，随机应变',a_trait:'J',b_trait:'P'},
   {q:'你更喜欢哪种旅行体验？',a:'深度了解一个地方',b:'走马观花多看几个',a_trait:'N',b_trait:'S'},
   {q:'出行时你更享受？',a:'一个人安静地探索',b:'和朋友热闹地玩',a_trait:'I',b_trait:'E'},
   {q:'选景点时你更在意？',a:'文化历史深度',b:'拍照打卡视觉效果',a_trait:'T',b_trait:'F'},
   {q:'预算超了你会？',a:'严格控制，取消部分行程',b:'没事，开心最重要',a_trait:'J',b_trait:'P'},
 ];
+const MBTI_QUESTIONS_EN=[
+  {q:'When planning a trip, you prefer to:',a:'Make a detailed plan in advance',b:'Figure it out as you go',a_trait:'J',b_trait:'P'},
+  {q:'You prefer which travel experience?',a:'Deep dive into one place',b:'See as many places as possible',a_trait:'N',b_trait:'S'},
+  {q:'While traveling, you enjoy:',a:'Exploring quietly on your own',b:'Having fun with friends',a_trait:'I',b_trait:'E'},
+  {q:'When choosing attractions, you care more about:',a:'Cultural and historical depth',b:'Photo-worthy visual appeal',a_trait:'T',b_trait:'F'},
+  {q:'If you go over budget, you would:',a:'Cut activities strictly to stay within budget',b:'No worries, happiness is what matters',a_trait:'J',b_trait:'P'},
+];
+function getMBTIQuestions(){ return S.lang==='en'?MBTI_QUESTIONS_EN:MBTI_QUESTIONS_ZH; }
 function openMBTIQuiz(){
   S.mbtiQuizAnswers={};
-  document.getElementById('mbti-questions').innerHTML=MBTI_QUESTIONS.map((q,i)=>`
+  const isEN=S.lang==='en';
+  document.querySelector('#modal-mbti-quiz .modal-title').textContent=isEN?'🔮 Discover Your Travel Personality':'🔮 AI 帮你判断旅行人格';
+  document.querySelector('#modal-mbti-quiz .btn-primary')?.setAttribute('data-label',isEN?'Get My Type':'生成我的旅行人格');
+  const questions=getMBTIQuestions();
+  document.getElementById('mbti-questions').innerHTML=questions.map((q,i)=>`
     <div style="margin-bottom:1rem;padding:.75rem;background:var(--bg3);border-radius:var(--radius2)">
       <div style="font-weight:500;margin-bottom:.5rem;font-size:.88rem">Q${i+1}. ${q.q}</div>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -4805,33 +5067,31 @@ document.addEventListener('click',e=>{
 });
 
 
-// ─── Mobile Sidebar Drawer ────────────────────────────────────────────────────
+// ─── Global Sidebar Drawer ───────────────────────────────────────────────────
 function toggleSidebar(){
-  const sidebar = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen = document.body.classList.contains('sidebar-open');
+  setSidebarOpen(!isOpen);
+}
+function setSidebarOpen(open){
+  const btn = document.getElementById('hamburger-btn');
   const closeBtn = document.getElementById('sidebar-close-btn');
-  const isOpen = sidebar.classList.contains('mob-open');
-  sidebar.classList.toggle('mob-open', !isOpen);
-  overlay.style.display = isOpen ? 'none' : 'block';
-  if(closeBtn) closeBtn.style.display = isOpen ? 'none' : 'block';
-  // Prevent body scroll when drawer open
-  document.body.style.overflow = isOpen ? '' : 'hidden';
+  document.body.classList.toggle('sidebar-open', open);
+  if(btn) btn.classList.toggle('active', open);
+  if(closeBtn) closeBtn.style.display = open ? 'block' : 'none';
+  // On mobile: lock body scroll when open
+  if(window.innerWidth <= 768) document.body.style.overflow = open ? 'hidden' : '';
+  // Persist preference (desktop only - mobile always starts closed)
+  if(window.innerWidth > 768) try{localStorage.setItem('tf_sidebar', open?'1':'0');}catch(e){}
 }
 function closeSidebarIfMobile(){
-  if(window.innerWidth <= 768){
-    const sidebar = document.getElementById('sidebar');
-    if(sidebar.classList.contains('mob-open')) toggleSidebar();
+  if(window.innerWidth <= 768 && document.body.classList.contains('sidebar-open')){
+    setSidebarOpen(false);
   }
 }
-// Close sidebar when window resizes to desktop
+
+// Resize: unlock scroll and reset overlay if switching breakpoints
 window.addEventListener('resize', ()=>{
   if(window.innerWidth > 768){
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    const closeBtn = document.getElementById('sidebar-close-btn');
-    sidebar.classList.remove('mob-open');
-    overlay.style.display = 'none';
-    if(closeBtn) closeBtn.style.display = 'none';
     document.body.style.overflow = '';
   }
 });
@@ -4978,6 +5238,14 @@ window.updateModelDropdown = updateModelDropdown;
   S.lang=localStorage.getItem('tf_lang')||'zh';
   document.documentElement.lang=(S.lang==='en')?'en':'zh-CN';
   applyI18n();
+  // Restore sidebar state
+  const savedSidebar = localStorage.getItem('tf_sidebar');
+  // Desktop: open by default; Mobile: closed by default
+  const startOpen = window.innerWidth > 768 ? (savedSidebar !== '0') : false;
+  if(startOpen) document.body.classList.add('sidebar-open');
+  const initHamBtn = document.getElementById('hamburger-btn');
+  if(initHamBtn) initHamBtn.classList.toggle('active', startOpen);
+
   // Show home page immediately (don't wait for Firebase)
   document.getElementById('page-home').classList.add('active');
   document.getElementById('topbar-title').textContent=(S.lang==='en'?'My Travel Plans':'我的旅行计划');
